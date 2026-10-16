@@ -1,4 +1,5 @@
 local file = require("file")
+local log = require("log")
 
 local M = {}
 
@@ -26,7 +27,9 @@ function M.discover(root)
     local found = {}
     for _, path in ipairs(file.glob(file.join_path(root, "**", "SKILL.md"))) do
         local name = M.parse_name(file.read(path))
-        if name ~= nil then
+        if name ~= nil and not name:match("^[%w][%w._-]*$") then
+            log.warn("mise-skill: ignored " .. path .. ": invalid skill name " .. name)
+        elseif name ~= nil then
             table.insert(found, { name = name, dir = path:sub(1, #path - #"/SKILL.md") })
         end
     end

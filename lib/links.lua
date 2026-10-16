@@ -40,6 +40,7 @@ local counter = 0
 local function place(src, dst, tmpdir)
     counter = counter + 1
     local tmp = file.join_path(tmpdir, "mise-skill-link-" .. counter)
+    os.remove(tmp) -- a stale link from an earlier failed run would make symlink fail
     file.symlink(src, tmp)
     file.move(tmp, dst)
 end
@@ -75,7 +76,12 @@ function M.uninstall(install_path)
     if not file.exists(record) then
         return
     end
-    for _, dst in ipairs(json.decode(file.read(record))) do
+    local ok, dsts = pcall(json.decode, file.read(record))
+    if not ok then
+        log.warn("mise-skill: could not read " .. record .. ": " .. tostring(dsts))
+        return
+    end
+    for _, dst in ipairs(dsts) do
         local kind, owner = M.classify(dst)
         if kind == "ours" and owner == install_path then
             local ok, err = os.remove(dst)
