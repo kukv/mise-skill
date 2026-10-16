@@ -1,5 +1,7 @@
 # mise-skill
 
+[日本語](README.ja.md)
+
 A [mise](https://mise.jdx.dev) backend plugin that installs [agent skills](https://agentskills.io)
 from GitHub repositories and links them where Claude Code and Codex look for them.
 

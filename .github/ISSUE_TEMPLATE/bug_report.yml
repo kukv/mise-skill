@@ -1,0 +1,69 @@
+name: Bug report
+description: Something does not work as the README describes
+labels: ["Kind: Bug Fix"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **A security issue does not belong here.** A crafted skill repository that makes
+        mise-skill write or link outside the directories it manages, or a token leaking into
+        output — report it privately through the **Security** tab (*Report a vulnerability*);
+        see [SECURITY.md](https://github.com/kukv/mise-skill/blob/main/SECURITY.md).
+
+        Anything else that behaves differently from the README — an install that fails, a
+        link missing or in the wrong place, a link left behind after uninstall — belongs here.
+  - type: input
+    id: plugin-version
+    attributes:
+      label: mise-skill version
+      description: The commit of the plugin, from `mise plugins ls --urls`.
+      placeholder: skill  https://github.com/kukv/mise-skill  main  5174525
+    validations:
+      required: true
+  - type: input
+    id: mise-version
+    attributes:
+      label: mise version
+      description: What `mise --version` prints.
+      placeholder: 2026.10.10 linux-x64 (2026-10-14)
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Linux
+        - macOS
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: config
+    attributes:
+      label: Configuration
+      description: |
+        The `skill:` entries in your mise config, `MISE_SKILL_AGENTS` if you set it, and the
+        command you ran.
+      placeholder: |
+        [tools]
+        "skill:owner/repo" = { version = "latest", agents = ["claude-code"] }
+
+        mise install
+      render: toml
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: The steps that lead to it, what you expected, and what you got instead.
+    validations:
+      required: true
+  - type: textarea
+    id: output
+    attributes:
+      label: Output
+      description: |
+        The error or warning as text, ideally from `mise install --verbose`, and `ls -l` of the
+        skills directory if a link is wrong. Remove any token before pasting.

@@ -1,0 +1,5 @@
+# The working copy is LF on every platform. The tests are POSIX sh scripts and
+# sh chokes on a CRLF script; stylua also rewrites CRLF Lua files to LF
+# (stylua.toml), so a checkout with core.autocrlf=true fails `mise run lint`.
+# text=auto leaves binary files alone.
+* text=auto eol=lf

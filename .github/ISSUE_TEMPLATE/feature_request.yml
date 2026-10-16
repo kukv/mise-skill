@@ -1,0 +1,27 @@
+name: Feature request
+description: Suggest something new mise-skill should do
+labels: ["Kind: Feature"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        mise-skill is a mise backend plugin that installs agent skills from GitHub and links
+        them for coding agents. It is plain Lua run by mise on Linux and macOS, with no extra
+        tools, so a proposal has to work within what a mise plugin can do.
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem you want solved
+      description: What you are trying to do today, and where mise-skill gets in the way or falls short.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: What you have in mind
+      description: How it would be configured and what it would do. An example `[tools]` entry is welcome.
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What you do instead today
+      description: The workaround you use now (manual symlinks, another installer), if any.
