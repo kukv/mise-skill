@@ -9,7 +9,7 @@ out="$(m ls-remote skill:kukv/mise-skill-fixtures)"
 latest="$(m latest skill:kukv/mise-skill-fixtures)"
 [ "$latest" = "0.2.0" ] || fail "latest should be 0.2.0, got: $latest"
 
-if err="$(m ls-remote skill:kukv/dotfiles 2>&1)"; then
+if err="$(m ls-remote skill:kukv/mise-skill-fixtures-untagged 2>&1)"; then
   fail "ls-remote on a repo without tags should fail"
 fi
 echo "$err" | grep -q 'ref:main' || fail "error should suggest ref:main, got: $err"
