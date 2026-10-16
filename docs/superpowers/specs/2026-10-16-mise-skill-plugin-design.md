@@ -78,7 +78,8 @@ mise-skill/
   1 つも無ければ失敗させる。タグは `v` 付き・無しの両方を試して解決する。
   続けてリンクを張る（後述）。
 - **BackendExecEnv**: `{ env_vars = {} }` を返す（PATH を変えない）。
-- GitHub API には `MISE_GITHUB_TOKEN` / `GITHUB_TOKEN` があれば付ける。
+- GitHub のトークンは扱わない。mise の `http` は `api.github.com` 宛てに mise が解決した
+  トークンを自動で付ける。`codeload.github.com` 宛てには付けない（付けると失敗する）。
 
 ### スキルの発見
 
@@ -107,20 +108,31 @@ Claude Code が symlink のスキルを読むことは手元で確認済み
 ### リンク（BackendInstall の後半）
 
 1. `ctx.options` から対象スキルとリンク先ディレクトリを決める。
-2. 各 `<dir>/<スキル名>` について:
-   - 何も無ければ、この版のスキルディレクトリへの symlink を作る（`<dir>` が無ければ作る）。
+2. リンクする各スキルディレクトリに、所有の目印 `.mise-skill`（中身は `install_path`）を書く。
+3. 各 `<dir>/<スキル名>` について:
+   - 何も無ければ、この版のスキルディレクトリへの symlink を作る。
    - 本プラグインのリンク（後述）なら張り替える。版の更新はここで追従する。
    - それ以外（実ディレクトリ・他人のリンク）なら触らず、警告して skipped とする。
-3. 張ったリンクの一覧を `install_path/.mise-skill.json` に記録する。
+4. 張ったリンクの一覧を `install_path/.mise-skill.json` に記録する。
 
-**本プラグインのリンク**: symlink で、リンク先の祖先ディレクトリに `.mise-skill.json` が
-あるもの。installs ディレクトリの命名に依存しない。
+symlink は `download_path` に作ってから `file.move` で目的の場所へ移す。`file.symlink` は
+親ディレクトリが無いと失敗するが、`file.move` は親を作り、既存の symlink も rename で
+置き換えられるため。
+
+**本プラグインのリンク**: symlink で、リンク越しに `.mise-skill` が読めるもの。
+`file.stat` はリンク先を返さない（readlink 相当が無い）ため、目印ファイルで判定する。
+目印の中身で、どの版の `install_path` を指しているかも分かる。
 
 ### リンク解除（BackendUninstall）
 
 `install_path/.mise-skill.json` に記録したリンクのうち、今もこの `install_path` を
-指しているものだけを消す。`mise prune` 時の `ctx.options` は既定値しか持たないため、
-オプションではなく記録を使う。新しい版に張り替え済みのリンクは消えない。
+指しているもの（リンク越しの `.mise-skill` の中身が一致するもの）だけを `os.remove` で消す。
+`mise prune` 時の `ctx.options` は既定値しか持たないため、オプションではなく記録を使う。
+
+`mise upgrade` は新しい版を入れたあと、古い版をすぐには消さない（後の prune や遅延削除で
+消える）。そのときに新しい版のリンクを消さないよう、この一致確認が要る。
+`mise install -f` は先に BackendUninstall を呼んでから入れ直すため、オプション変更で
+外れたリンクもここで消える。
 
 ### 依存
 
@@ -131,9 +143,9 @@ Claude Code が symlink のスキルを読むことは手元で確認済み
 | GitHub API・tarball の取得 | `http` |
 | API 応答と記録ファイルの読み書き | `json` |
 | tarball の展開 | `archiver.decompress`（`.tar.gz` 対応） |
-| `SKILL.md` の探索 | `file.glob` / `file.list` |
-| リンクの作成・判定 | `file.symlink` / `file.stat`（`is_symlink`） |
-| リンクの削除 | Lua 標準の `os.remove` |
+| `SKILL.md` の探索 | `file.glob`（`**` が使え、直下の `SKILL.md` にも一致する） |
+| リンクの作成・判定 | `file.symlink` + `file.move` / `file.stat`（`is_symlink`） / `file.read` |
+| リンクの削除 | Lua 標準の `os.remove`（symlink 自体を消す） |
 
 `metadata.lua` の `depends` / `systemDependencies` は使わない。
 
@@ -184,18 +196,18 @@ dotfiles の `tests/bootstrap/*.test.sh` と同じく素の sh で書き、使�
    `hunk-review`（自作ローダー）と `koto-import`（自前 symlink）は対象外で触らない。
 4. メモリ `claude-skills-provisioning` を新方式に書き換える。
 
-## 実装前に確かめること
+## 確認済みの前提（2026-10-16、mise 2026.10.10 で使い捨てプラグインを動かして確認）
 
-最初のタスクで小さく試し、結果に応じて設計を直す。
-
-1. `"skill:owner/repo" = "ref:main"` が backend plugin の hook にどう渡るか（`ctx.version` の値）。
-2. BackendInstall の `ctx.options` に `skills` / `agents` / `dirs` が配列のまま届くか
-   （ドキュメント上、値は文字列に変換されることがある）。
-3. `mise prune` / `mise uninstall` で BackendUninstall が呼ばれ、`ctx.install_path` が渡るか。
-4. mise の Lua 環境で `os.remove` が使え、symlink 自体（リンク先ではなく）を消せるか。
-5. リンク先ディレクトリ（例: `~/.agents/skills`）が無いとき、内蔵モジュールだけで作れるか。
-   `file` モジュールに mkdir が無いため、`file.symlink` が親を作るか、別の手段が要るかを確かめる。
-   内蔵で作れなければ、ディレクトリが無いエージェントはスキップして警告する
-   （そのエージェントが入っていない、と見なす）。
-
-`[env]` の値が hook から `os.getenv` で読めることは、ドキュメント（hook environment）で確認済み。
+| 項目 | 結果 |
+|---|---|
+| `"ref:main"` の渡り方 | `ctx.version = "ref:main"`、`install_path` は `.../ref-main` |
+| 配列のオプション | `ctx.options.skills` などは Lua の配列のまま届く |
+| `[env]` の値 | `os.getenv("MISE_SKILL_AGENTS")` で読める |
+| installs ディレクトリ名 | `skill-<owner>-<repo>`（実装はこの名前に依存しない） |
+| 親が無い場所への `file.symlink` | 失敗する（No such file or directory） |
+| `download_path` に作った symlink を `file.move` | 親ディレクトリを作って移動でき、symlink のまま |
+| `os.remove` | symlink 自体を消す |
+| `mise prune` | 各版の BackendUninstall を `install_path` 付きで呼ぶ |
+| `mise install -f` | BackendUninstall を呼んでから BackendInstall を呼ぶ |
+| `mise upgrade` | 新しい版を入れ、古い版の BackendUninstall はその場では呼ばない |
+| `file.glob("<dir>/**/SKILL.md")` | 直下とサブディレクトリの両方に一致する |
