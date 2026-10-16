@@ -72,7 +72,8 @@ mise-skill/
 
 - `ctx.tool` は `owner/repo`。
 - **BackendListVersions**: GitHub API でタグ一覧を取り、先頭の `v` を除いた版を古い順に返す。
-  タグが無ければ空を返す。
+  版らしくないタグ（`v` の後が数字で始まらないもの。例: `skill-v2-draft`）は除く。
+  版が 1 つも無ければ `ref:` の使用を案内して失敗する（`ref:` の版ではこの hook は呼ばれない）。
 - **BackendInstall**: 指定版（タグ、または `ref:` で渡された ref）の tarball を
   `codeload.github.com` から取得し、`install_path` に展開する。展開後に `SKILL.md` が
   1 つも無ければ失敗させる。タグは `v` 付き・無しの両方を試して解決する。
@@ -182,7 +183,7 @@ dotfiles の `tests/bootstrap/*.test.sh` と同じく素の sh で書き、使�
 
 ## リポジトリの作成
 
-`kukv/structure` で `terraform/repository_mise-skill.tf` を追加する PR を出す。
+`kukv/structure` で `terraform/repository_mise_skill.tf` を追加する PR を出す。
 手順と指定できる引数は structure の `manage-repository` スキルと
 `terraform/modules/repository/variables.tf` に従う。apply は structure の PR マージで行う。
 作成後、`~/dev/workspaces/mise-skill` の内容を push する。
@@ -200,7 +201,8 @@ dotfiles の `tests/bootstrap/*.test.sh` と同じく素の sh で書き、使�
 
 | 項目 | 結果 |
 |---|---|
-| `"ref:main"` の渡り方 | `ctx.version = "ref:main"`、`install_path` は `.../ref-main` |
+| `"ref:main"` の渡り方 | `ctx.version = "ref:main"`、`install_path` は `.../ref-main`。BackendListVersions は呼ばれない |
+| 版を指定した install | BackendListVersions が呼ばれ、そのエラーで install が止まる |
 | 配列のオプション | `ctx.options.skills` などは Lua の配列のまま届く |
 | `[env]` の値 | `os.getenv("MISE_SKILL_AGENTS")` で読める |
 | installs ディレクトリ名 | `skill-<owner>-<repo>`（実装はこの名前に依存しない） |
