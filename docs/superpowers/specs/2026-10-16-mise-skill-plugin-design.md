@@ -122,6 +122,21 @@ Claude Code が symlink のスキルを読むことは手元で確認済み
 指しているものだけを消す。`mise prune` 時の `ctx.options` は既定値しか持たないため、
 オプションではなく記録を使う。新しい版に張り替え済みのリンクは消えない。
 
+### 依存
+
+追加のツールを要求しない。処理はすべて mise 内蔵の Lua モジュールで行う。
+
+| 処理 | 使うもの |
+|---|---|
+| GitHub API・tarball の取得 | `http` |
+| API 応答と記録ファイルの読み書き | `json` |
+| tarball の展開 | `archiver.decompress`（`.tar.gz` 対応） |
+| `SKILL.md` の探索 | `file.glob` / `file.list` |
+| リンクの作成・判定 | `file.symlink` / `file.stat`（`is_symlink`） |
+| リンクの削除 | Lua 標準の `os.remove` |
+
+`metadata.lua` の `depends` / `systemDependencies` は使わない。
+
 ## エラー処理
 
 | 状況 | 動き |
@@ -176,6 +191,11 @@ dotfiles の `tests/bootstrap/*.test.sh` と同じく素の sh で書き、使�
 1. `"skill:owner/repo" = "ref:main"` が backend plugin の hook にどう渡るか（`ctx.version` の値）。
 2. BackendInstall の `ctx.options` に `skills` / `agents` / `dirs` が配列のまま届くか
    （ドキュメント上、値は文字列に変換されることがある）。
-3. BackendInstall の実行時に `[env]` の `MISE_SKILL_AGENTS` が `os.getenv` で読めるか。
-4. `mise prune` / `mise uninstall` で BackendUninstall が呼ばれ、`ctx.install_path` が渡るか。
-5. Lua から symlink を作る手段（mise の Lua モジュールに無ければ `cmd.exec` で `ln -s`）。
+3. `mise prune` / `mise uninstall` で BackendUninstall が呼ばれ、`ctx.install_path` が渡るか。
+4. mise の Lua 環境で `os.remove` が使え、symlink 自体（リンク先ではなく）を消せるか。
+5. リンク先ディレクトリ（例: `~/.agents/skills`）が無いとき、内蔵モジュールだけで作れるか。
+   `file` モジュールに mkdir が無いため、`file.symlink` が親を作るか、別の手段が要るかを確かめる。
+   内蔵で作れなければ、ディレクトリが無いエージェントはスキップして警告する
+   （そのエージェントが入っていない、と見なす）。
+
+`[env]` の値が hook から `os.getenv` で読めることは、ドキュメント（hook environment）で確認済み。
