@@ -1,5 +1,26 @@
 {
   "extends": [
     "github>bright-room/renovate-config"
+  ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "hk.pkl pins the hk Pkl package by release URL; keep it in step with hk in mise.toml",
+      "managerFilePatterns": ["/^hk\\.pkl$/"],
+      "matchStrings": [
+        "releases/download/v(?<currentValue>\\d+\\.\\d+\\.\\d+)/hk@",
+        "/hk@(?<currentValue>\\d+\\.\\d+\\.\\d+)#"
+      ],
+      "depNameTemplate": "jdx/hk",
+      "datasourceTemplate": "github-releases",
+      "extractVersionTemplate": "^v(?<version>.+)$"
+    }
+  ],
+  "packageRules": [
+    {
+      "description": "Update hk in mise.toml and hk.pkl in one PR",
+      "matchPackageNames": ["jdx/hk"],
+      "groupName": "hk"
+    }
   ]
 }
