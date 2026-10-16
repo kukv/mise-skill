@@ -52,10 +52,11 @@ Links are made when a version is installed and removed when it is uninstalled.
 |---|---|
 | add a skill or move to a new version | `mise install` / `mise upgrade` |
 | apply changed `skills` / `agents` / `dirs` | `mise install -f skill:owner/repo` |
+| move a `ref:` install (e.g. `ref:main`) to the branch's latest commit | `mise install -f skill:owner/repo@ref:main` |
 | remove a skill's links | delete it from `[tools]`, then `mise prune` |
 
-An existing directory or a link that mise-skill did not create is never touched; the install
-warns and skips it.
+An existing directory or a working link that mise-skill did not create is never touched; the
+install warns and skips it. A dangling link with the same name is replaced.
 
 ## Development
 
