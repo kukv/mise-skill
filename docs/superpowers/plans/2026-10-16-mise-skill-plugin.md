@@ -44,16 +44,14 @@
 | `.github/workflows/test.yml` | Linux / macOS でテスト |
 | `README.md` | 使い方 |
 
-テストはネットワークで実際の GitHub リポジトリを使う。GitHub API のレート制限を避けるため、テスト実行時は `GITHUB_TOKEN`（または `MISE_GITHUB_TOKEN`）を環境に入れる。ローカルでは `GITHUB_TOKEN="$(gh auth token)" sh tests/xxx.test.sh`。
+テストはネットワークで GitHub 上の fixture リポジトリ `kukv/mise-skill-fixtures`（タグ無しの確認は `kukv/mise-skill-fixtures-untagged`）を使う。GitHub API のレート制限を避けるため、テスト実行時は `GITHUB_TOKEN`（または `MISE_GITHUB_TOKEN`）を環境に入れる。ローカルでは `GITHUB_TOKEN="$(gh auth token)" sh tests/xxx.test.sh`。
 
 テストに使うリポジトリ:
 
 | リポジトリ | 性質 |
 |---|---|
-| `coji/natural-japanese` | タグあり（最古 `v0.1.0`、`v1.5.1`、`v1.5.2` など。版でないタグ `skill-v2-draft` も混ざる）。スキル `natural-japanese` が `skills/natural-japanese/` に 1 つ |
-| `nanaism/yomiyasu` | タグあり。スキル `yomiyasu` |
-| `ast-grep/agent-skill` | タグ無し、既定ブランチ `main`。スキル `ast-grep` と `ast-grep-outline` |
-| `jdx/mise-backend-plugin-template` | `SKILL.md` が無い、既定ブランチ `main` |
+| `kukv/mise-skill-fixtures` | タグ `v0.1.0` / `v0.2.0`（版でないタグ `draft-v9` も混ざる）。スキル `alpha` `beta`（`skills/`）と `gamma`（`nested/deep/gamma/`）。ブランチ `no-skills`（`SKILL.md` 無し）、`invalid-name`（不正な名前 `../../escape` のスキル入り） |
+| `kukv/mise-skill-fixtures-untagged` | タグを打たない fixture。スキル無し |
 
 ---
 
@@ -167,15 +165,15 @@ config() { cat > "$h/.config/mise/config.toml"; }
 . "$(dirname "$0")/lib.sh"
 
 new_home versions
-out="$(m ls-remote skill:coji/natural-japanese)"
-echo "$out" | grep -qx '1.5.2' || fail "ls-remote should list 1.5.2, got: $out"
+out="$(m ls-remote skill:example/writing-guide)"
+echo "$out" | grep -qx '0.2.0' || fail "ls-remote should list 0.2.0, got: $out"
 echo "$out" | grep -q '^v' && fail "versions must not start with v: $out"
 [ "$(echo "$out" | head -n1)" = "0.1.0" ] || fail "versions must be oldest first, got: $out"
-echo "$out" | grep -q 'skill-v2-draft' && fail "non-version tags must be dropped: $out"
-latest="$(m latest skill:coji/natural-japanese)"
+echo "$out" | grep -q 'draft-v9' && fail "non-version tags must be dropped: $out"
+latest="$(m latest skill:example/writing-guide)"
 echo "$latest" | grep -q '^[0-9]' || fail "latest should be a version, got: $latest"
 
-if err="$(m ls-remote skill:ast-grep/agent-skill 2>&1)"; then
+if err="$(m ls-remote skill:example/code-search 2>&1)"; then
   fail "ls-remote on a repo without tags should fail"
 fi
 echo "$err" | grep -q 'ref:main' || fail "error should suggest ref:main, got: $err"
@@ -258,7 +256,7 @@ function M.tags(repo)
 end
 
 -- versions(tags) -> version-like tag names (a digit after an optional "v") without the "v",
--- deduplicated, oldest first. Other tags such as "skill-v2-draft" are not versions: semver.sort
+-- deduplicated, oldest first. Other tags such as "draft-v9" are not versions: semver.sort
 -- would read their digits and put them last, making them "latest".
 function M.versions(tags)
     local seen, out = {}, {}
@@ -340,30 +338,30 @@ new_home install
 echo '[tools]' | config
 
 # a tagged version, with or without the "v" in the tag
-m install skill:coji/natural-japanese@1.5.2 >/dev/null 2>&1 || fail "install natural-japanese@1.5.2"
-[ -f "$(installs)/skill-coji-natural-japanese/1.5.2/skills/natural-japanese/SKILL.md" ] ||
-  fail "natural-japanese SKILL.md should be extracted"
+m install skill:example/writing-guide@0.2.0 >/dev/null 2>&1 || fail "install writing-guide@0.2.0"
+[ -f "$(installs)/skill-example-writing-guide/0.2.0/skills/writing-guide/SKILL.md" ] ||
+  fail "writing-guide SKILL.md should be extracted"
 
 # a ref on a repository without tags
-m install skill:ast-grep/agent-skill@ref:main >/dev/null 2>&1 || fail "install agent-skill@ref:main"
-[ -f "$(installs)/skill-ast-grep-agent-skill/ref-main/ast-grep/skills/outline/SKILL.md" ] ||
-  fail "agent-skill should be extracted"
+m install skill:example/code-search@ref:main >/dev/null 2>&1 || fail "install code-search@ref:main"
+[ -f "$(installs)/skill-example-code-search/ref-main/code-search/skills/outline/SKILL.md" ] ||
+  fail "code-search should be extracted"
 
 # no SKILL.md at all
-if err="$(m install skill:jdx/mise-backend-plugin-template@ref:main 2>&1)"; then
+if err="$(m install skill:example/no-skills@ref:main 2>&1)"; then
   fail "a repository without SKILL.md should fail"
 fi
 echo "$err" | grep -q 'no SKILL.md' || fail "error should say no SKILL.md, got: $err"
 
 # skills option names a skill that does not exist
-printf '[tools]\n"skill:nanaism/yomiyasu" = { version = "latest", skills = ["nope"] }\n' | config
+printf '[tools]\n"skill:example/prose-lint" = { version = "latest", skills = ["nope"] }\n' | config
 if err="$(m install 2>&1)"; then
   fail "an unknown name in skills should fail"
 fi
 echo "$err" | grep -q 'nope' || fail "error should name the unknown skill, got: $err"
 
 # an unknown version
-if m install skill:coji/natural-japanese@0.0.0-nope >/dev/null 2>&1; then
+if m install skill:example/writing-guide@0.0.0-nope >/dev/null 2>&1; then
   fail "an unknown version should fail"
 fi
 
@@ -373,7 +371,7 @@ echo "ok install"
 - [ ] **Step 2: 実行して失敗を確認する**
 
 Run: `GITHUB_TOKEN="$(gh auth token)" sh tests/install.test.sh`
-Expected: FAIL `install natural-japanese@1.5.2`（仮実装が error を投げる）
+Expected: FAIL `install writing-guide@0.2.0`（仮実装が error を投げる）
 
 - [ ] **Step 3: `lib/github.lua` に追加する**
 
@@ -537,20 +535,20 @@ installs() { echo "$h/.local/share/mise/installs"; }
 
 # default agent: claude-code only
 new_home default
-printf '[tools]\n"skill:coji/natural-japanese" = "1.5.2"\n' | config
+printf '[tools]\n"skill:example/writing-guide" = "0.2.0"\n' | config
 m install >/dev/null 2>&1 || fail "default: install"
-[ -L "$h/.claude/skills/natural-japanese" ] || fail "default: link in ~/.claude/skills"
-[ -f "$h/.claude/skills/natural-japanese/SKILL.md" ] || fail "default: link should reach SKILL.md"
-[ "$(cat "$h/.claude/skills/natural-japanese/.mise-skill")" = "$(installs)/skill-coji-natural-japanese/1.5.2" ] ||
+[ -L "$h/.claude/skills/writing-guide" ] || fail "default: link in ~/.claude/skills"
+[ -f "$h/.claude/skills/writing-guide/SKILL.md" ] || fail "default: link should reach SKILL.md"
+[ "$(cat "$h/.claude/skills/writing-guide/.mise-skill")" = "$(installs)/skill-example-writing-guide/0.2.0" ] ||
   fail "default: marker should hold install_path"
-[ -e "$h/.agents/skills/natural-japanese" ] && fail "default: codex is not a default agent"
+[ -e "$h/.agents/skills/writing-guide" ] && fail "default: codex is not a default agent"
 
 # MISE_SKILL_AGENTS from [env], creating ~/.agents/skills that does not exist yet
 new_home env
-printf '[env]\nMISE_SKILL_AGENTS = "claude-code,codex"\n[tools]\n"skill:coji/natural-japanese" = "1.5.2"\n' | config
+printf '[env]\nMISE_SKILL_AGENTS = "claude-code,codex"\n[tools]\n"skill:example/writing-guide" = "0.2.0"\n' | config
 m install >/dev/null 2>&1 || fail "env: install"
-[ -L "$h/.claude/skills/natural-japanese" ] || fail "env: claude-code link"
-[ -L "$h/.agents/skills/natural-japanese" ] || fail "env: codex link"
+[ -L "$h/.claude/skills/writing-guide" ] || fail "env: claude-code link"
+[ -L "$h/.agents/skills/writing-guide" ] || fail "env: codex link"
 
 # agents option overrides MISE_SKILL_AGENTS; dirs adds a path; skills selects
 new_home options
@@ -558,47 +556,47 @@ cat <<'EOT' | config
 [env]
 MISE_SKILL_AGENTS = "claude-code,codex"
 [tools]
-"skill:ast-grep/agent-skill" = { version = "ref:main", skills = ["ast-grep-outline"], agents = ["codex"], dirs = ["~/extra/skills"] }
+"skill:example/code-search" = { version = "ref:main", skills = ["code-search-outline"], agents = ["codex"], dirs = ["~/extra/skills"] }
 EOT
 m install >/dev/null 2>&1 || fail "options: install"
-[ -L "$h/.agents/skills/ast-grep-outline" ] || fail "options: codex link"
-[ -L "$h/extra/skills/ast-grep-outline" ] || fail "options: dirs link"
-[ -e "$h/.claude/skills/ast-grep-outline" ] && fail "options: agents should replace the env default"
-[ -e "$h/.agents/skills/ast-grep" ] && fail "options: skills should select only ast-grep-outline"
+[ -L "$h/.agents/skills/code-search-outline" ] || fail "options: codex link"
+[ -L "$h/extra/skills/code-search-outline" ] || fail "options: dirs link"
+[ -e "$h/.claude/skills/code-search-outline" ] && fail "options: agents should replace the env default"
+[ -e "$h/.agents/skills/code-search" ] && fail "options: skills should select only code-search-outline"
 
 # unknown agent and relative dirs fail the install
 new_home bad
-printf '[tools]\n"skill:coji/natural-japanese" = { version = "1.5.2", agents = ["nope"] }\n' | config
+printf '[tools]\n"skill:example/writing-guide" = { version = "0.2.0", agents = ["nope"] }\n' | config
 if err="$(m install 2>&1)"; then fail "bad: unknown agent should fail"; fi
 echo "$err" | grep -q 'unknown agent nope' || fail "bad: error should name the agent, got: $err"
-printf '[tools]\n"skill:coji/natural-japanese" = { version = "1.5.2", dirs = ["relative/skills"] }\n' | config
+printf '[tools]\n"skill:example/writing-guide" = { version = "0.2.0", dirs = ["relative/skills"] }\n' | config
 if err="$(m install 2>&1)"; then fail "bad: relative dirs should fail"; fi
 echo "$err" | grep -q 'relative/skills' || fail "bad: error should name the dir, got: $err"
 
 # a real directory with the same name is left alone
 new_home conflict
-mkdir -p "$h/.claude/skills/natural-japanese"
-echo mine > "$h/.claude/skills/natural-japanese/SKILL.md"
-printf '[tools]\n"skill:coji/natural-japanese" = "1.5.2"\n' | config
+mkdir -p "$h/.claude/skills/writing-guide"
+echo mine > "$h/.claude/skills/writing-guide/SKILL.md"
+printf '[tools]\n"skill:example/writing-guide" = "0.2.0"\n' | config
 m install >/dev/null 2>&1 || fail "conflict: install should still succeed"
-[ -L "$h/.claude/skills/natural-japanese" ] && fail "conflict: the real directory must not be replaced"
-[ "$(cat "$h/.claude/skills/natural-japanese/SKILL.md")" = mine ] || fail "conflict: contents changed"
+[ -L "$h/.claude/skills/writing-guide" ] && fail "conflict: the real directory must not be replaced"
+[ "$(cat "$h/.claude/skills/writing-guide/SKILL.md")" = mine ] || fail "conflict: contents changed"
 
 # a dangling link with the same name is replaced
 new_home dangling
 mkdir -p "$h/.claude/skills"
-ln -s "$h/gone" "$h/.claude/skills/natural-japanese"
-printf '[tools]\n"skill:coji/natural-japanese" = "1.5.2"\n' | config
+ln -s "$h/gone" "$h/.claude/skills/writing-guide"
+printf '[tools]\n"skill:example/writing-guide" = "0.2.0"\n' | config
 m install >/dev/null 2>&1 || fail "dangling: install"
-[ -f "$h/.claude/skills/natural-japanese/SKILL.md" ] || fail "dangling: link should be replaced"
+[ -f "$h/.claude/skills/writing-guide/SKILL.md" ] || fail "dangling: link should be replaced"
 
 # a failed install (typo in skills) does not leave a version that plain `mise install` skips
 new_home typo
-printf '[tools]\n"skill:coji/natural-japanese" = { version = "1.5.2", skills = ["natural-japanes"] }\n' | config
+printf '[tools]\n"skill:example/writing-guide" = { version = "0.2.0", skills = ["writing-guid"] }\n' | config
 m install >/dev/null 2>&1 && fail "typo: install should fail"
-printf '[tools]\n"skill:coji/natural-japanese" = { version = "1.5.2", skills = ["natural-japanese"] }\n' | config
+printf '[tools]\n"skill:example/writing-guide" = { version = "0.2.0", skills = ["writing-guide"] }\n' | config
 m install >/dev/null 2>&1 || fail "typo: install after the fix"
-[ -L "$h/.claude/skills/natural-japanese" ] || fail "typo: plain mise install after the fix should link"
+[ -L "$h/.claude/skills/writing-guide" ] || fail "typo: plain mise install after the fix should link"
 
 echo "ok link"
 ```
@@ -827,35 +825,35 @@ git commit -m "feat: install 時に agents / dirs へスキルの symlink を張
 ```sh
 # upgrading relinks to the new version; removing the old version keeps the new link
 new_home upgrade
-printf '[tools]\n"skill:coji/natural-japanese" = "1.5.1"\n' | config
-m install >/dev/null 2>&1 || fail "upgrade: install 1.5.1"
-printf '[tools]\n"skill:coji/natural-japanese" = "1.5.2"\n' | config
-m install >/dev/null 2>&1 || fail "upgrade: install 1.5.2"
-[ "$(cat "$h/.claude/skills/natural-japanese/.mise-skill")" = "$(installs)/skill-coji-natural-japanese/1.5.2" ] ||
-  fail "upgrade: link should point at 1.5.2"
-m uninstall skill:coji/natural-japanese@1.5.1 >/dev/null 2>&1 || fail "upgrade: uninstall 1.5.1"
-[ -L "$h/.claude/skills/natural-japanese" ] || fail "upgrade: removing 1.5.1 must keep the 1.5.2 link"
+printf '[tools]\n"skill:example/writing-guide" = "0.1.0"\n' | config
+m install >/dev/null 2>&1 || fail "upgrade: install 0.1.0"
+printf '[tools]\n"skill:example/writing-guide" = "0.2.0"\n' | config
+m install >/dev/null 2>&1 || fail "upgrade: install 0.2.0"
+[ "$(cat "$h/.claude/skills/writing-guide/.mise-skill")" = "$(installs)/skill-example-writing-guide/0.2.0" ] ||
+  fail "upgrade: link should point at 0.2.0"
+m uninstall skill:example/writing-guide@0.1.0 >/dev/null 2>&1 || fail "upgrade: uninstall 0.1.0"
+[ -L "$h/.claude/skills/writing-guide" ] || fail "upgrade: removing 0.1.0 must keep the 0.2.0 link"
 
 # install -f applies changed options and drops links that are no longer wanted
 cat <<'EOT' | config
 [tools]
-"skill:coji/natural-japanese" = { version = "1.5.2", agents = ["claude-code", "codex"] }
+"skill:example/writing-guide" = { version = "0.2.0", agents = ["claude-code", "codex"] }
 EOT
-m install -f skill:coji/natural-japanese@1.5.2 >/dev/null 2>&1 || fail "reinstall: add codex"
-[ -L "$h/.agents/skills/natural-japanese" ] || fail "reinstall: codex link should appear"
+m install -f skill:example/writing-guide@0.2.0 >/dev/null 2>&1 || fail "reinstall: add codex"
+[ -L "$h/.agents/skills/writing-guide" ] || fail "reinstall: codex link should appear"
 cat <<'EOT' | config
 [tools]
-"skill:coji/natural-japanese" = { version = "1.5.2", agents = ["codex"] }
+"skill:example/writing-guide" = { version = "0.2.0", agents = ["codex"] }
 EOT
-m install -f skill:coji/natural-japanese@1.5.2 >/dev/null 2>&1 || fail "reinstall: drop claude-code"
-[ -e "$h/.claude/skills/natural-japanese" ] && fail "reinstall: claude-code link should be gone"
-[ -L "$h/.agents/skills/natural-japanese" ] || fail "reinstall: codex link should stay"
+m install -f skill:example/writing-guide@0.2.0 >/dev/null 2>&1 || fail "reinstall: drop claude-code"
+[ -e "$h/.claude/skills/writing-guide" ] && fail "reinstall: claude-code link should be gone"
+[ -L "$h/.agents/skills/writing-guide" ] || fail "reinstall: codex link should stay"
 
 # removing the tool from the config and pruning removes its links, and only its links
 mkdir -p "$h/.agents/skills/handmade"
 echo '[tools]' | config
 m prune >/dev/null 2>&1 || fail "prune"
-[ -e "$h/.agents/skills/natural-japanese" ] && fail "prune: link should be gone"
+[ -e "$h/.agents/skills/writing-guide" ] && fail "prune: link should be gone"
 [ -d "$h/.agents/skills/handmade" ] || fail "prune: other entries must stay"
 ```
 
@@ -938,9 +936,9 @@ mise plugins install skill https://github.com/kukv/mise-skill
 MISE_SKILL_AGENTS = "claude-code,codex"   # default: claude-code
 
 [tools]
-"skill:coji/natural-japanese" = "latest"
-"skill:nanaism/yomiyasu" = { version = "latest", agents = ["claude-code"] }
-"skill:ast-grep/agent-skill" = { version = "ref:main", skills = ["ast-grep", "ast-grep-outline"] }
+"skill:example/writing-guide" = "latest"
+"skill:example/prose-lint" = { version = "latest", agents = ["claude-code"] }
+"skill:example/code-search" = { version = "ref:main", skills = ["code-search", "code-search-outline"] }
 "skill:foo/bar" = { version = "latest", dirs = ["~/somewhere/skills"] }
 ```
 
@@ -1144,30 +1142,30 @@ MISE_SKILL_AGENTS = "claude-code"
 `[tools]` に追加（`npm:skills` の行は削除）:
 
 ```toml
-"skill:herdrdev/herdr" = { version = "latest", skills = ["herdr"] }
-"skill:vercel-labs/skills" = { version = "latest", skills = ["find-skills"] }
-"skill:yusukebe/ax" = { version = "latest", skills = ["ax"] }
-"skill:ast-grep/agent-skill" = { version = "ref:main", skills = ["ast-grep", "ast-grep-outline"] }
-"skill:coji/natural-japanese" = "latest"
-"skill:nanaism/yomiyasu" = "latest"
+"skill:example/tool-a" = { version = "latest", skills = ["tool-a"] }
+"skill:example/tool-c" = { version = "latest", skills = ["tool-c"] }
+"skill:example/tool-b" = { version = "latest", skills = ["tool-b"] }
+"skill:example/code-search" = { version = "ref:main", skills = ["code-search", "code-search-outline"] }
+"skill:example/writing-guide" = "latest"
+"skill:example/prose-lint" = "latest"
 ```
 
-`herdr` / `ax` / `skills` はツール本体のリポジトリなので `skills` で明示する。各リポジトリのスキル名は、Step 4 の install 後に `~/.claude/skills` を見て確認する。
+`tool-a` / `tool-b` / `tool-c` はツール本体のリポジトリなので `skills` で明示する。各リポジトリのスキル名は、Step 4 の install 後に `~/.claude/skills` を見て確認する。
 
 - [ ] **Step 3: `bootstrap/post-tools.sh` のスキル用ループを削除する**
 
-`# Claude Code skills: "<skill> <repo>". ...` のコメントから、そのヒアドキュメントの `EOT` までを削除する。`hunk-review` に関するコメントは、自作ローダーが mise `[dotfiles]` で配置される旨として `mise.toml` 側に必要なら移す。
+`# Claude Code skills: "<skill> <repo>". ...` のコメントから、そのヒアドキュメントの `EOT` までを削除する。自作スキルに関するコメントは、自作スキルのディレクトリが mise `[dotfiles]` で配置される旨として `mise.toml` 側に必要なら移す。
 
 - [ ] **Step 4: このマシンで移行する**
 
 ```bash
-rm -rf ~/.claude/skills/{herdr,find-skills,ax,ast-grep,ast-grep-outline,natural-japanese,yomiyasu}
-rm -rf ~/.agents/skills/{herdr,find-skills} ~/.agents/.skill-lock.json
+rm -rf ~/.claude/skills/{tool-a,tool-c,tool-b,code-search,code-search-outline,writing-guide,prose-lint}
+rm -rf ~/.agents/skills/{tool-a,tool-c} ~/.agents/.skill-lock.json
 mise install
 ls -la ~/.claude/skills
 ```
 
-Expected: 7 つが symlink で並び、`hunk-review`（実ディレクトリ）と `koto-import`（自前 symlink）は変わらない。
+Expected: 7 つが symlink で並び、自作スキルのディレクトリ（実ディレクトリ）と自作 symlink は変わらない。
 
 - [ ] **Step 5: dotfiles のテストを回す**
 

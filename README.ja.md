@@ -15,9 +15,9 @@ mise plugins install skill https://github.com/kukv/mise-skill
 MISE_SKILL_AGENTS = "claude-code,codex"   # 既定: claude-code
 
 [tools]
-"skill:coji/natural-japanese" = "latest"
-"skill:nanaism/yomiyasu" = { version = "latest", agents = ["claude-code"] }
-"skill:ast-grep/agent-skill" = { version = "ref:main", skills = ["ast-grep", "ast-grep-outline"] }
+"skill:example/writing-guide" = "latest"
+"skill:example/prose-lint" = { version = "latest", agents = ["claude-code"] }
+"skill:example/code-search" = { version = "ref:main", skills = ["code-search", "code-search-outline"] }
 "skill:foo/bar" = { version = "latest", dirs = ["~/somewhere/skills"] }
 ```
 
@@ -71,7 +71,7 @@ mise run ci    # lint + test
 （shellcheck）、ワークフロー（actionlint）を検査する。`mise run lint-fix` は直せるものを直す。
 `mise run test` は `tests/*.test.sh` をすべて実行し、最初の失敗で止まる。
 
-テストは実在の GitHub リポジトリを使う。API のレート制限を避けるため、gh CLI のログイン
+テストは fixture リポジトリ kukv/mise-skill-fixtures の架空のスキルを install する。API のレート制限を避けるため、gh CLI のログイン
 （または GITHUB_TOKEN）で認証する。
 
 mise 2026.10.10 の Linux と macOS で動作を確認している。

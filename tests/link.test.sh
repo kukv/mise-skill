@@ -3,23 +3,27 @@
 # shellcheck source=tests/lib.sh
 . "$(dirname "$0")/lib.sh"
 installs() { echo "$h/.local/share/mise/installs"; }
+fx=skill:kukv/mise-skill-fixtures
+dir=skill-kukv-mise-skill-fixtures
 
 # default agent: claude-code only
 new_home default
-printf '[tools]\n"skill:coji/natural-japanese" = "1.5.2"\n' | config
+printf '[tools]\n"%s" = "0.1.0"\n' "$fx" | config
 m install >/dev/null 2>&1 || fail "default: install"
-[ -L "$h/.claude/skills/natural-japanese" ] || fail "default: link in ~/.claude/skills"
-[ -f "$h/.claude/skills/natural-japanese/SKILL.md" ] || fail "default: link should reach SKILL.md"
-[ "$(cat "$h/.claude/skills/natural-japanese/.mise-skill")" = "$(installs)/skill-coji-natural-japanese/1.5.2" ] ||
+for s in alpha beta gamma; do
+  [ -L "$h/.claude/skills/$s" ] || fail "default: $s link in ~/.claude/skills"
+done
+[ -f "$h/.claude/skills/alpha/SKILL.md" ] || fail "default: link should reach SKILL.md"
+[ "$(cat "$h/.claude/skills/alpha/.mise-skill")" = "$(installs)/$dir/0.1.0" ] ||
   fail "default: marker should hold install_path"
-[ -e "$h/.agents/skills/natural-japanese" ] && fail "default: codex is not a default agent"
+[ -e "$h/.agents/skills/alpha" ] && fail "default: codex is not a default agent"
 
 # MISE_SKILL_AGENTS from [env], creating ~/.agents/skills that does not exist yet
 new_home env
-printf '[env]\nMISE_SKILL_AGENTS = "claude-code,codex"\n[tools]\n"skill:coji/natural-japanese" = "1.5.2"\n' | config
+printf '[env]\nMISE_SKILL_AGENTS = "claude-code,codex"\n[tools]\n"%s" = "0.1.0"\n' "$fx" | config
 m install >/dev/null 2>&1 || fail "env: install"
-[ -L "$h/.claude/skills/natural-japanese" ] || fail "env: claude-code link"
-[ -L "$h/.agents/skills/natural-japanese" ] || fail "env: codex link"
+[ -L "$h/.claude/skills/alpha" ] || fail "env: claude-code link"
+[ -L "$h/.agents/skills/alpha" ] || fail "env: codex link"
 
 # agents option overrides MISE_SKILL_AGENTS; dirs adds a path; skills selects
 new_home options
@@ -27,79 +31,93 @@ cat <<'EOT' | config
 [env]
 MISE_SKILL_AGENTS = "claude-code,codex"
 [tools]
-"skill:ast-grep/agent-skill" = { version = "ref:main", skills = ["ast-grep-outline"], agents = ["codex"], dirs = ["~/extra/skills"] }
+"skill:kukv/mise-skill-fixtures" = { version = "0.1.0", skills = ["gamma"], agents = ["codex"], dirs = ["~/extra/skills"] }
 EOT
 m install >/dev/null 2>&1 || fail "options: install"
-[ -L "$h/.agents/skills/ast-grep-outline" ] || fail "options: codex link"
-[ -L "$h/extra/skills/ast-grep-outline" ] || fail "options: dirs link"
-[ -e "$h/.claude/skills/ast-grep-outline" ] && fail "options: agents should replace the env default"
-[ -e "$h/.agents/skills/ast-grep" ] && fail "options: skills should select only ast-grep-outline"
+[ -L "$h/.agents/skills/gamma" ] || fail "options: codex link"
+[ -L "$h/extra/skills/gamma" ] || fail "options: dirs link"
+[ -e "$h/.claude/skills/gamma" ] && fail "options: agents should replace the env default"
+[ -e "$h/.agents/skills/alpha" ] && fail "options: skills should select only gamma"
 
 # unknown agent and relative dirs fail the install
 new_home bad
-printf '[tools]\n"skill:coji/natural-japanese" = { version = "1.5.2", agents = ["nope"] }\n' | config
+printf '[tools]\n"%s" = { version = "0.1.0", agents = ["nope"] }\n' "$fx" | config
 if err="$(m install 2>&1)"; then fail "bad: unknown agent should fail"; fi
 echo "$err" | grep -q 'unknown agent nope' || fail "bad: error should name the agent, got: $err"
-printf '[tools]\n"skill:coji/natural-japanese" = { version = "1.5.2", dirs = ["relative/skills"] }\n' | config
+printf '[tools]\n"%s" = { version = "0.1.0", dirs = ["relative/skills"] }\n' "$fx" | config
 if err="$(m install 2>&1)"; then fail "bad: relative dirs should fail"; fi
 echo "$err" | grep -q 'relative/skills' || fail "bad: error should name the dir, got: $err"
 
 # a real directory with the same name is left alone
 new_home conflict
-mkdir -p "$h/.claude/skills/natural-japanese"
-echo mine > "$h/.claude/skills/natural-japanese/SKILL.md"
-printf '[tools]\n"skill:coji/natural-japanese" = "1.5.2"\n' | config
+mkdir -p "$h/.claude/skills/alpha"
+echo mine > "$h/.claude/skills/alpha/SKILL.md"
+printf '[tools]\n"%s" = "0.1.0"\n' "$fx" | config
 m install >/dev/null 2>&1 || fail "conflict: install should still succeed"
-[ -L "$h/.claude/skills/natural-japanese" ] && fail "conflict: the real directory must not be replaced"
-[ "$(cat "$h/.claude/skills/natural-japanese/SKILL.md")" = mine ] || fail "conflict: contents changed"
+[ -L "$h/.claude/skills/alpha" ] && fail "conflict: the real directory must not be replaced"
+[ "$(cat "$h/.claude/skills/alpha/SKILL.md")" = mine ] || fail "conflict: contents changed"
 
 # a dangling link with the same name is replaced
 new_home dangling
 mkdir -p "$h/.claude/skills"
-ln -s "$h/gone" "$h/.claude/skills/natural-japanese"
-printf '[tools]\n"skill:coji/natural-japanese" = "1.5.2"\n' | config
+ln -s "$h/gone" "$h/.claude/skills/alpha"
+printf '[tools]\n"%s" = "0.1.0"\n' "$fx" | config
 m install >/dev/null 2>&1 || fail "dangling: install"
-[ -f "$h/.claude/skills/natural-japanese/SKILL.md" ] || fail "dangling: link should be replaced"
+[ -f "$h/.claude/skills/alpha/SKILL.md" ] || fail "dangling: link should be replaced"
 
 # a failed install (typo in skills) does not leave a version that plain `mise install` skips
 new_home typo
-printf '[tools]\n"skill:coji/natural-japanese" = { version = "1.5.2", skills = ["natural-japanes"] }\n' | config
+printf '[tools]\n"%s" = { version = "0.1.0", skills = ["gamm"] }\n' "$fx" | config
 m install >/dev/null 2>&1 && fail "typo: install should fail"
-printf '[tools]\n"skill:coji/natural-japanese" = { version = "1.5.2", skills = ["natural-japanese"] }\n' | config
+printf '[tools]\n"%s" = { version = "0.1.0", skills = ["gamma"] }\n' "$fx" | config
 m install >/dev/null 2>&1 || fail "typo: install after the fix"
-[ -L "$h/.claude/skills/natural-japanese" ] || fail "typo: plain mise install after the fix should link"
+[ -L "$h/.claude/skills/gamma" ] || fail "typo: plain mise install after the fix should link"
 
 # upgrading relinks to the new version; removing the old version keeps the new link
 new_home upgrade
-printf '[tools]\n"skill:coji/natural-japanese" = "1.5.1"\n' | config
-m install >/dev/null 2>&1 || fail "upgrade: install 1.5.1"
-printf '[tools]\n"skill:coji/natural-japanese" = "1.5.2"\n' | config
-m install >/dev/null 2>&1 || fail "upgrade: install 1.5.2"
-[ "$(cat "$h/.claude/skills/natural-japanese/.mise-skill")" = "$(installs)/skill-coji-natural-japanese/1.5.2" ] ||
-  fail "upgrade: link should point at 1.5.2"
-m uninstall skill:coji/natural-japanese@1.5.1 >/dev/null 2>&1 || fail "upgrade: uninstall 1.5.1"
-[ -L "$h/.claude/skills/natural-japanese" ] || fail "upgrade: removing 1.5.1 must keep the 1.5.2 link"
+printf '[tools]\n"%s" = "0.1.0"\n' "$fx" | config
+m install >/dev/null 2>&1 || fail "upgrade: install 0.1.0"
+printf '[tools]\n"%s" = "0.2.0"\n' "$fx" | config
+m install >/dev/null 2>&1 || fail "upgrade: install 0.2.0"
+[ "$(cat "$h/.claude/skills/alpha/.mise-skill")" = "$(installs)/$dir/0.2.0" ] ||
+  fail "upgrade: link should point at 0.2.0"
+m uninstall "$fx@0.1.0" >/dev/null 2>&1 || fail "upgrade: uninstall 0.1.0"
+[ -L "$h/.claude/skills/alpha" ] || fail "upgrade: removing 0.1.0 must keep the 0.2.0 link"
 
 # install -f applies changed options and drops links that are no longer wanted
 cat <<'EOT' | config
 [tools]
-"skill:coji/natural-japanese" = { version = "1.5.2", agents = ["claude-code", "codex"] }
+"skill:kukv/mise-skill-fixtures" = { version = "0.2.0", agents = ["claude-code", "codex"] }
 EOT
-m install -f skill:coji/natural-japanese@1.5.2 >/dev/null 2>&1 || fail "reinstall: add codex"
-[ -L "$h/.agents/skills/natural-japanese" ] || fail "reinstall: codex link should appear"
+m install -f "$fx@0.2.0" >/dev/null 2>&1 || fail "reinstall: add codex"
+[ -L "$h/.agents/skills/alpha" ] || fail "reinstall: codex link should appear"
 cat <<'EOT' | config
 [tools]
-"skill:coji/natural-japanese" = { version = "1.5.2", agents = ["codex"] }
+"skill:kukv/mise-skill-fixtures" = { version = "0.2.0", agents = ["codex"] }
 EOT
-m install -f skill:coji/natural-japanese@1.5.2 >/dev/null 2>&1 || fail "reinstall: drop claude-code"
-[ -e "$h/.claude/skills/natural-japanese" ] && fail "reinstall: claude-code link should be gone"
-[ -L "$h/.agents/skills/natural-japanese" ] || fail "reinstall: codex link should stay"
+m install -f "$fx@0.2.0" >/dev/null 2>&1 || fail "reinstall: drop claude-code"
+[ -e "$h/.claude/skills/alpha" ] && fail "reinstall: claude-code link should be gone"
+[ -L "$h/.agents/skills/alpha" ] || fail "reinstall: codex link should stay"
 
 # removing the tool from the config and pruning removes its links, and only its links
 mkdir -p "$h/.agents/skills/handmade"
 echo '[tools]' | config
 m prune >/dev/null 2>&1 || fail "prune"
-[ -e "$h/.agents/skills/natural-japanese" ] && fail "prune: link should be gone"
+[ -e "$h/.agents/skills/alpha" ] && fail "prune: link should be gone"
 [ -d "$h/.agents/skills/handmade" ] || fail "prune: other entries must stay"
+
+# a skill whose name would escape the skills directory is skipped; the others are linked
+new_home name
+printf '[tools]\n"%s" = "ref:invalid-name"\n' "$fx" | config
+out="$(m install 2>&1)" || fail "name: install should succeed, got: $out"
+echo "$out" | grep -q 'invalid skill name' || fail "name: should warn about the invalid name, got: $out"
+for s in alpha beta gamma; do
+  [ -L "$h/.claude/skills/$s" ] || fail "name: $s should be linked"
+done
+for p in "$h/.claude/escape" "$h/escape" "$h/.claude/skills/escape"; do
+  [ -e "$p" ] && fail "name: $p must not exist"
+done
+stray="$(find "$h" -name escape -not -path '*/installs/*' -not -path '*/downloads/*')"
+[ -z "$stray" ] || fail "name: nothing named escape may exist outside installs, got: $stray"
 
 echo "ok link"

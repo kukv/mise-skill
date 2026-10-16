@@ -34,7 +34,7 @@ function M.tags(repo)
 end
 
 -- versions(tags) -> version-like tag names (a digit after an optional "v") without the "v",
--- deduplicated, oldest first. Other tags such as "skill-v2-draft" are not versions: semver.sort
+-- deduplicated, oldest first. Other tags such as "draft-v9" are not versions: semver.sort
 -- would read their digits and put them last, making them "latest".
 function M.versions(tags)
     local seen, out = {}, {}

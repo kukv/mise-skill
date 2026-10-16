@@ -9,7 +9,7 @@
 dotfiles は Claude Code のスキルを skills CLI（`npm:skills`）で入れ、一覧を
 `bootstrap/post-tools.sh` のヒアドキュメントで管理している。mise 本体の
 `mise skills` は `packslip:` backend のツールが署名付き manifest で宣言したスキルしか
-扱えないため、SKILL.md を置いただけの普通のリポジトリ（例: `coji/natural-japanese`）は
+扱えないため、SKILL.md を置いただけの普通のリポジトリ（例: `example/writing-guide`）は
 mise で管理できない。既存のプラグインも見当たらない。
 
 ## 目的
@@ -34,9 +34,9 @@ mise で管理できない。既存のプラグインも見当たらない。
 MISE_SKILL_AGENTS = "claude-code,codex"   # 全体の既定。未設定なら claude-code
 
 [tools]
-"skill:coji/natural-japanese" = "latest"
-"skill:nanaism/yomiyasu" = { version = "latest", agents = ["claude-code"] }
-"skill:ast-grep/agent-skill" = { version = "ref:main", skills = ["ast-grep", "ast-grep-outline"] }
+"skill:example/writing-guide" = "latest"
+"skill:example/prose-lint" = { version = "latest", agents = ["claude-code"] }
+"skill:example/code-search" = { version = "ref:main", skills = ["code-search", "code-search-outline"] }
 "skill:foo/bar" = { version = "latest", dirs = ["~/somewhere/skills"] }
 ```
 
@@ -72,7 +72,7 @@ mise-skill/
 
 - `ctx.tool` は `owner/repo`。
 - **BackendListVersions**: GitHub API でタグ一覧を取り、先頭の `v` を除いた版を古い順に返す。
-  版らしくないタグ（`v` の後が数字で始まらないもの。例: `skill-v2-draft`）は除く。
+  版らしくないタグ（`v` の後が数字で始まらないもの。例: `draft-v9`）は除く。
   版が 1 つも無ければ `ref:` の使用を案内して失敗する（`ref:` の版ではこの hook は呼ばれない）。
 - **BackendInstall**: 指定版（タグ、または `ref:` で渡された ref）の tarball を
   `codeload.github.com` から取得し、`install_path` に展開する。展開後に `SKILL.md` が
@@ -103,7 +103,7 @@ mise-skill/
 | `codex` | `~/.agents/skills` |
 
 Claude Code が symlink のスキルを読むことは手元で確認済み
-（`~/.claude/skills/koto-import` は symlink）。Codex は公式ドキュメントに
+（自作の symlink を置いて確認した）。Codex は公式ドキュメントに
 「supports symlinked skill folders」とあり、利用者用の置き場は `~/.agents/skills`。
 
 ### リンク（BackendInstall の後半）
@@ -168,11 +168,14 @@ symlink は `download_path` に作ってから `file.move` で目的の場所へ
 dotfiles の `tests/bootstrap/*.test.sh` と同じく素の sh で書き、使い捨ての
 `HOME` / `MISE_DATA_DIR` で実行する。
 
+- テストの対象は実在のスキルではなく、自前の fixture リポジトリ `kukv/mise-skill-fixtures` にする。
+  タグ `v0.1.0` / `v0.2.0`（版でないタグ `draft-v9` も混ぜる）、スキル `alpha` `beta` `gamma`、
+  ブランチ `no-skills`（`SKILL.md` 無し）、`invalid-name`（不正な名前のスキル入り）を置く。
+  タグ無しのリポジトリには fixture の `kukv/mise-skill-fixtures-untagged` を使う。
 - `tests/install.test.sh`: `mise plugins link` で実際に入れる。
-  - `coji/natural-japanese`（タグあり、`latest` と版固定）
-  - `ast-grep/agent-skill`（タグ無し、`ref:main`）
-  - `nanaism/yomiyasu`
-  - タグ無しで `latest` を指定したときに失敗すること
+  - fixture のタグ指定（`@0.1.0`）と `ref:`（`ref:invalid-name`）
+  - `ref:no-skills` で `SKILL.md` 無しとして失敗すること
+  - タグ無しの `kukv/mise-skill-fixtures-untagged` で `latest` を指定したときに失敗すること
   - `skills` に無い名前・未知の `agents` で失敗すること
 - `tests/link.test.sh`:
   - install でリンクが張られること、版の更新で張り替わること
@@ -196,7 +199,7 @@ dotfiles の `tests/bootstrap/*.test.sh` と同じく素の sh で書き、使�
 2. `bootstrap/post-tools.sh` のスキル用ループと、mise config の `npm:skills` を削除する。
 3. 移行手順: skills CLI で入れた実ディレクトリ（`~/.claude/skills/*`、`~/.agents/skills/*`）と
    `~/.agents/.skill-lock.json` を消してから `mise install -f` でスキルを入れ直す。
-   `hunk-review`（自作ローダー）と `koto-import`（自前 symlink）は対象外で触らない。
+   自作スキルのディレクトリと自作 symlink は対象外で触らない。
 4. メモリ `claude-skills-provisioning` を新方式に書き換える。
 
 ## 確認済みの前提（2026-10-16、mise 2026.10.10 で使い捨てプラグインを動かして確認）

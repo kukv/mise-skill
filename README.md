@@ -15,9 +15,9 @@ mise plugins install skill https://github.com/kukv/mise-skill
 MISE_SKILL_AGENTS = "claude-code,codex"   # default: claude-code
 
 [tools]
-"skill:coji/natural-japanese" = "latest"
-"skill:nanaism/yomiyasu" = { version = "latest", agents = ["claude-code"] }
-"skill:ast-grep/agent-skill" = { version = "ref:main", skills = ["ast-grep", "ast-grep-outline"] }
+"skill:example/writing-guide" = "latest"
+"skill:example/prose-lint" = { version = "latest", agents = ["claude-code"] }
+"skill:example/code-search" = { version = "ref:main", skills = ["code-search", "code-search-outline"] }
 "skill:foo/bar" = { version = "latest", dirs = ["~/somewhere/skills"] }
 ```
 
@@ -71,6 +71,6 @@ mise run ci    # lint + test
 workflows (actionlint) with [hk](https://hk.jdx.dev); `mise run lint-fix` fixes what it can.
 `mise run test` runs every `tests/*.test.sh` and stops at the first failure.
 
-The tests use real GitHub repositories. They authenticate with the gh CLI's login (or GITHUB_TOKEN) to avoid API rate limits.
+The tests install fictional skills from the fixture repository kukv/mise-skill-fixtures. They authenticate with the gh CLI's login (or GITHUB_TOKEN) to avoid API rate limits.
 
 Tested with mise 2026.10.10 on Linux and macOS.
