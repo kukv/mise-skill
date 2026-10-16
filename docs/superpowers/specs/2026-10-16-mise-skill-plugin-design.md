@@ -14,9 +14,10 @@ mise で管理できない。既存のプラグインも見当たらない。
 
 ## 目的
 
-- スキルを mise config の `[tools]` に宣言し、`mise install` で取得できるようにする。
+- スキルを mise config の `[tools]` に宣言し、`mise install` だけで使える状態にする。
 - 取得したスキルを、エージェントが読むディレクトリへ symlink で配る。
 - 版を固定・更新できるようにする（タグ、またはブランチ・コミット）。
+- 利用者に hook やスクリプトの設定を求めない。
 
 ## 対象外
 
@@ -24,6 +25,7 @@ mise で管理できない。既存のプラグインも見当たらない。
   グローバル（`$HOME` 配下）のみを扱う。
 - GitHub 以外のホスト。
 - 署名・検証（packslip が担う領域）。
+- Windows。
 
 ## 使い方
 
@@ -36,13 +38,19 @@ MISE_SKILL_AGENTS = "claude-code,codex"   # 全体の既定。未設定なら cl
 "skill:nanaism/yomiyasu" = { version = "latest", agents = ["claude-code"] }
 "skill:ast-grep/agent-skill" = { version = "ref:main", skills = ["ast-grep", "ast-grep-outline"] }
 "skill:foo/bar" = { version = "latest", dirs = ["~/somewhere/skills"] }
-
-[hooks]
-postinstall = "~/.local/share/mise/plugins/skill/bin/sync"
 ```
 
 プラグインは `mise plugins install skill https://github.com/kukv/mise-skill` で入れる。
 プレフィックス `skill:` はこのインストール名から決まる。
+
+| やりたいこと | 操作 |
+|---|---|
+| 追加・版の更新 | `[tools]` を書いて `mise install`（`mise upgrade`） |
+| `skills` / `agents` / `dirs` の変更を反映 | `mise install -f skill:owner/repo` |
+| 外したスキルのリンクを消す | `[tools]` から外して `mise prune` |
+
+リンクは install / uninstall のときにしか張り替えないため、入れ済みの版の設定変更は
+`install -f` が要る。これは「hook の設定を不要にする」ことと引き換えに受け入れた制約。
 
 ## 構成
 
@@ -52,18 +60,15 @@ mise-skill/
 ├── hooks/
 │   ├── backend_list_versions.lua
 │   ├── backend_install.lua
+│   ├── backend_uninstall.lua
 │   └── backend_exec_env.lua
-├── bin/sync
+├── lib/                 # GitHub 取得、スキル発見、リンク処理
 └── tests/
     ├── install.test.sh
-    └── sync.test.sh
+    └── link.test.sh
 ```
 
-取得（backend plugin）とリンク（`bin/sync`）は分離する。backend plugin は mise に
-サブコマンドを追加できないため、sync は同梱スクリプトとして配り、利用者が
-`[hooks] postinstall` から呼ぶ。手動実行もできる。
-
-### backend plugin
+### 取得
 
 - `ctx.tool` は `owner/repo`。
 - **BackendListVersions**: GitHub API でタグ一覧を取り、先頭の `v` を除いた版を古い順に返す。
@@ -71,6 +76,7 @@ mise-skill/
 - **BackendInstall**: 指定版（タグ、または `ref:` で渡された ref）の tarball を
   `codeload.github.com` から取得し、`install_path` に展開する。展開後に `SKILL.md` が
   1 つも無ければ失敗させる。タグは `v` 付き・無しの両方を試して解決する。
+  続けてリンクを張る（後述）。
 - **BackendExecEnv**: `{ env_vars = {} }` を返す（PATH を変えない）。
 - GitHub API には `MISE_GITHUB_TOKEN` / `GITHUB_TOKEN` があれば付ける。
 
@@ -87,7 +93,7 @@ mise-skill/
 | `agents` | `MISE_SKILL_AGENTS`（未設定なら `claude-code`） | リンク先をエージェント名で指定 |
 | `dirs` | なし | リンク先をパスで追加指定。`agents` と併用すると両方に張る |
 
-エージェント名と実際のディレクトリの対応は sync に内蔵する。
+エージェント名と実際のディレクトリの対応はプラグインに内蔵する。
 
 | agent | ディレクトリ |
 |---|---|
@@ -98,18 +104,23 @@ Claude Code が symlink のスキルを読むことは手元で確認済み
 （`~/.claude/skills/koto-import` は symlink）。Codex は公式ドキュメントに
 「supports symlinked skill folders」とあり、利用者用の置き場は `~/.agents/skills`。
 
-### sync
+### リンク（BackendInstall の後半）
 
-1. `mise ls --current --json` で `skill:` で始まるツールの有効な版と `install_path` を得る。
-2. ツールごとに `mise tool <name> --json` の `tool_options` から `skills` / `agents` / `dirs` を読む。
-3. 各リンク先 `<dir>/<skill名>` に、有効な版のスキルディレクトリへの symlink を張る。
-   既に自分のリンクがあり、指す先が違えば張り替える。
-4. 自分のリンクのうち、今回の対象に無いもの・リンク切れのものを削除する。
+1. `ctx.options` から対象スキルとリンク先ディレクトリを決める。
+2. 各 `<dir>/<スキル名>` について:
+   - 何も無ければ、この版のスキルディレクトリへの symlink を作る（`<dir>` が無ければ作る）。
+   - 本プラグインのリンク（後述）なら張り替える。版の更新はここで追従する。
+   - それ以外（実ディレクトリ・他人のリンク）なら触らず、警告して skipped とする。
+3. 張ったリンクの一覧を `install_path/.mise-skill.json` に記録する。
 
-「自分のリンク」は、リンク先が mise の installs 配下の本プラグインのディレクトリを指す
-symlink と定義する。台帳ファイルは持たない。
+**本プラグインのリンク**: symlink で、リンク先の祖先ディレクトリに `.mise-skill.json` が
+あるもの。installs ディレクトリの命名に依存しない。
 
-依存: POSIX sh、`jq`、`mise`。
+### リンク解除（BackendUninstall）
+
+`install_path/.mise-skill.json` に記録したリンクのうち、今もこの `install_path` を
+指しているものだけを消す。`mise prune` 時の `ctx.options` は既定値しか持たないため、
+オプションではなく記録を使う。新しい版に張り替え済みのリンクは消えない。
 
 ## エラー処理
 
@@ -117,14 +128,10 @@ symlink と定義する。台帳ファイルは持たない。
 |---|---|
 | タグが無いリポジトリで `latest` | install を失敗させ、`ref:<branch>` の使用を案内する |
 | 取得物に `SKILL.md` が無い | install を失敗させる |
-| `skills` に書いた名前が無い | sync が警告し、残りは続ける |
-| 同じ dir に同名スキルが複数 | 先に処理したものを採用し、後のものは skipped と報告する |
-| 実ディレクトリ・他人のリンクと衝突 | 触らず skipped と報告する |
-| `agents` に未知の名前 | 警告して無視する |
-| `jq` が無い | sync を即座に失敗させる |
-
-sync はスキル単位の失敗で止めず、最後にまとめて報告する。失敗が 1 つでもあれば
-終了コードを非 0 にする。
+| `skills` に書いた名前が無い | install を失敗させる（綴り間違いに気づけるように） |
+| 同じリポジトリ内に同名スキルが複数 | install を失敗させる |
+| 実ディレクトリ・他人のリンクと衝突 | 触らず警告し、install は成功させる |
+| `agents` に未知の名前 | install を失敗させる |
 
 ## テスト
 
@@ -136,10 +143,14 @@ dotfiles の `tests/bootstrap/*.test.sh` と同じく素の sh で書き、使�
   - `ast-grep/agent-skill`（タグ無し、`ref:main`）
   - `nanaism/yomiyasu`
   - タグ無しで `latest` を指定したときに失敗すること
-- `tests/sync.test.sh`:
-  - リンクの作成、版変更での張り替え、設定から外したときの削除、リンク切れの削除
-  - 実ディレクトリとの衝突で skipped になること
+  - `skills` に無い名前・未知の `agents` で失敗すること
+- `tests/link.test.sh`:
+  - install でリンクが張られること、版の更新で張り替わること
+  - 古い版の uninstall で新しい版のリンクが消えないこと
+  - `[tools]` から外して `mise prune` するとリンクが消えること
+  - 実ディレクトリとの衝突で skipped になり、中身が変わらないこと
   - `skills` による絞り込み、`agents` / `dirs` / `MISE_SKILL_AGENTS` の組み合わせ
+  - オプション変更が `install -f` で反映されること
 - GitHub Actions で Linux と macOS の両方で回す。
 
 ## リポジトリの作成
@@ -151,11 +162,11 @@ dotfiles の `tests/bootstrap/*.test.sh` と同じく素の sh で書き、使�
 
 ## dotfiles への移行（プラグインのリリース後、別 PR）
 
-1. mise config にプラグイン、`skill:*` のツール、`MISE_SKILL_AGENTS`、`[hooks] postinstall` を追加する。
+1. mise config にプラグイン、`skill:*` のツール、`MISE_SKILL_AGENTS` を追加する。
 2. `bootstrap/post-tools.sh` のスキル用ループと、mise config の `npm:skills` を削除する。
 3. 移行手順: skills CLI で入れた実ディレクトリ（`~/.claude/skills/*`、`~/.agents/skills/*`）と
-   `~/.agents/.skill-lock.json` を消してから sync を回す。`hunk-review`（自作ローダー）と
-   `koto-import`（自前 symlink）は対象外で触らない。
+   `~/.agents/.skill-lock.json` を消してから `mise install -f` でスキルを入れ直す。
+   `hunk-review`（自作ローダー）と `koto-import`（自前 symlink）は対象外で触らない。
 4. メモリ `claude-skills-provisioning` を新方式に書き換える。
 
 ## 実装前に確かめること
@@ -163,6 +174,8 @@ dotfiles の `tests/bootstrap/*.test.sh` と同じく素の sh で書き、使�
 最初のタスクで小さく試し、結果に応じて設計を直す。
 
 1. `"skill:owner/repo" = "ref:main"` が backend plugin の hook にどう渡るか（`ctx.version` の値）。
-2. installs ディレクトリの実際の名前（「自分のリンク」の判定に使う）。
-3. グローバル設定の `[hooks] postinstall` が `mise install`（グローバルのツール）でも発火するか。
-4. `mise tool skill:owner/repo --json` の `tool_options` に `skills` などの独自オプションが出るか。
+2. BackendInstall の `ctx.options` に `skills` / `agents` / `dirs` が配列のまま届くか
+   （ドキュメント上、値は文字列に変換されることがある）。
+3. BackendInstall の実行時に `[env]` の `MISE_SKILL_AGENTS` が `os.getenv` で読めるか。
+4. `mise prune` / `mise uninstall` で BackendUninstall が呼ばれ、`ctx.install_path` が渡るか。
+5. Lua から symlink を作る手段（mise の Lua モジュールに無ければ `cmd.exec` で `ln -s`）。
