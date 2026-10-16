@@ -58,7 +58,9 @@ Links are made when a version is installed and removed when it is uninstalled.
 | remove a skill's links | delete it from `[tools]`, then `mise prune` |
 
 An existing directory or a working link that mise-skill did not create is never touched; the
-install warns and skips it. A dangling link with the same name is replaced.
+install warns and skips it. The same goes for a link that another `skill:` tool placed: when two
+tools provide a skill with the same name, the one installed first keeps it (use `skills` to choose).
+A dangling link with the same name is replaced.
 
 ## Development
 

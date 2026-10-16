@@ -65,6 +65,43 @@ printf '[tools]\n"%s" = "0.1.0"\n' "$fx" | config
 m install >/dev/null 2>&1 || fail "dangling: install"
 [ -f "$h/.claude/skills/alpha/SKILL.md" ] || fail "dangling: link should be replaced"
 
+# a link that another tool placed is left alone, and the other skills are still linked
+new_home other-tool
+other="$(installs)/skill-someone-else/1.0.0"
+mkdir -p "$other/alpha" "$h/.claude/skills"
+printf '%s' "$other" > "$other/alpha/.mise-skill"
+ln -s "$other/alpha" "$h/.claude/skills/alpha"
+printf '[tools]\n"%s" = "0.1.0"\n' "$fx" | config
+out="$(m install 2>&1)" || fail "other-tool: install should succeed, got: $out"
+echo "$out" | grep -q 'another tool links it' || fail "other-tool: should warn, got: $out"
+[ "$(cat "$h/.claude/skills/alpha/.mise-skill")" = "$other" ] ||
+  fail "other-tool: alpha must still point at the other tool"
+[ -L "$h/.claude/skills/beta" ] || fail "other-tool: beta should be linked"
+m uninstall "$fx@0.1.0" >/dev/null 2>&1 || fail "other-tool: uninstall"
+[ -L "$h/.claude/skills/alpha" ] || fail "other-tool: uninstall must keep the other tool's link"
+
+# dirs on another filesystem: links are made and replaced there, with no temporary link left
+fs_of() { df -P "$1" | awk 'NR == 2 { print $1 }'; }
+if [ -d /dev/shm ] && [ -w /dev/shm ] && [ "$(fs_of /dev/shm)" != "$(fs_of "$tmp")" ]; then
+  xdev="$(mktemp -d /dev/shm/mise-skill-test.XXXXXX)"
+  trap 'rm -rf "$tmp" "$xdev"' EXIT
+  new_home xdev
+  mkdir "$xdev/existing"
+  printf '[tools]\n"%s" = { version = "0.1.0", dirs = ["%s/existing", "%s/new/skills"] }\n' "$fx" "$xdev" "$xdev" | config
+  m install >/dev/null 2>&1 || fail "xdev: install"
+  for d in "$xdev/existing" "$xdev/new/skills"; do
+    [ -f "$d/alpha/SKILL.md" ] || fail "xdev: $d/alpha should be linked"
+  done
+  printf '[tools]\n"%s" = { version = "0.2.0", dirs = ["%s/existing"] }\n' "$fx" "$xdev" | config
+  m install >/dev/null 2>&1 || fail "xdev: install 0.2.0"
+  [ "$(cat "$xdev/existing/alpha/.mise-skill")" = "$(installs)/$dir/0.2.0" ] ||
+    fail "xdev: link should be replaced with 0.2.0"
+  [ "$(ls "$xdev/existing")" = "$(printf 'alpha\nbeta\ngamma')" ] ||
+    fail "xdev: only the skills should be left, got: $(ls "$xdev/existing")"
+else
+  echo "skip xdev: /dev/shm is not a separate filesystem"
+fi
+
 # a failed install (typo in skills) does not leave a version that plain `mise install` skips
 new_home typo
 printf '[tools]\n"%s" = { version = "0.1.0", skills = ["gamm"] }\n' "$fx" | config
