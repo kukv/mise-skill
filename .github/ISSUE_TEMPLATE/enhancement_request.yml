@@ -1,0 +1,39 @@
+name: Enhancement request
+description: Suggest an improvement to something mise-skill already does
+labels: ["Kind: Enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        For a change to an existing option, agent, message or behavior — it is slow, awkward,
+        does too little or too much, warns unclearly. Something mise-skill does not do at all
+        is a **Feature request**; something that does not work as the README describes is a
+        **Bug report**.
+  - type: input
+    id: target
+    attributes:
+      label: What to improve
+      description: The option, agent, message or behavior this is about.
+      placeholder: the `dirs` option, the skip warning, ...
+    validations:
+      required: true
+  - type: textarea
+    id: current
+    attributes:
+      label: How it works today
+      description: What it does now, and where that falls short for you.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: How it should work
+      description: What you would change. An example `[tools]` entry is welcome.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: mise-skill version
+      description: The commit of the plugin, from `mise plugins ls --urls`, so the current behavior can be checked.
+      placeholder: skill  https://github.com/kukv/mise-skill  main  5174525
