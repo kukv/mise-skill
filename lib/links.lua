@@ -83,13 +83,7 @@ function M.install(install_path, tmpdir, selected, dirs)
                 log.warn("mise-skill: skipped " .. dst .. ": it exists and mise-skill did not create it")
             elseif kind == "ours" and dirname(owner) ~= dirname(install_path) then
                 -- Another version of this tool is replaced (that is an upgrade); another tool is not.
-                log.warn(
-                    "mise-skill: skipped "
-                        .. dst
-                        .. ": another tool links it, installed at "
-                        .. owner
-                        .. " (the rename option can give one of them another name)"
-                )
+                log.warn("mise-skill: skipped " .. dst .. ": another tool links it, installed at " .. owner)
             else
                 local ok, err = pcall(place, skill.dir, dst, tmpdir)
                 if ok then

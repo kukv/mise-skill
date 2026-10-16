@@ -40,7 +40,6 @@ installed by ref: `"ref:main"` or `"ref:<commit>"`.
 | `skills` | every skill found | Skill names (the `name:` in `SKILL.md`) to link |
 | `agents` | `MISE_SKILL_AGENTS`, else `claude-code` | Agents to link for |
 | `dirs` | none | Extra directories (absolute or `~/...`) to link into |
-| `rename` | none | New names for skills, e.g. `{ alpha = "my-alpha" }`; the link and the `name:` in the installed `SKILL.md` both change |
 
 | Agent | Directory |
 |---|---|
@@ -54,14 +53,14 @@ Links are made when a version is installed and removed when it is uninstalled.
 | To | Run |
 |---|---|
 | add a skill or move to a new version | `mise install` / `mise upgrade` |
-| apply changed `skills` / `agents` / `dirs` / `rename` | `mise install -f skill:owner/repo` |
+| apply changed `skills` / `agents` / `dirs` | `mise install -f skill:owner/repo` |
 | move a `ref:` install (e.g. `ref:main`) to the branch's latest commit | `mise install -f skill:owner/repo@ref:main` |
 | remove a skill's links | delete it from `[tools]`, then `mise prune` |
 
 An existing directory or a working link that mise-skill did not create is never touched; the
 install warns and skips it. The same goes for a link that another `skill:` tool placed: when two
-tools provide a skill with the same name, the one installed first keeps it. Choose one with
-`skills`, or give one another name with `rename`. A dangling link with the same name is replaced.
+tools provide a skill with the same name, the one installed first keeps it (use `skills` to choose).
+A dangling link with the same name is replaced.
 
 ## Development
 

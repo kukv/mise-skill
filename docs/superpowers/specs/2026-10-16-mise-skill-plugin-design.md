@@ -46,7 +46,7 @@ MISE_SKILL_AGENTS = "claude-code,codex"   # 全体の既定。未設定なら cl
 | やりたいこと | 操作 |
 |---|---|
 | 追加・版の更新 | `[tools]` を書いて `mise install`（`mise upgrade`） |
-| `skills` / `agents` / `dirs` / `rename` の変更を反映 | `mise install -f skill:owner/repo` |
+| `skills` / `agents` / `dirs` の変更を反映 | `mise install -f skill:owner/repo` |
 | 外したスキルのリンクを消す | `[tools]` から外して `mise prune` |
 
 リンクは install / uninstall のときにしか張り替えないため、入れ済みの版の設定変更は
@@ -94,15 +94,6 @@ mise-skill/
 | `skills` | 見つかった全スキル | リンクするスキル名の一覧 |
 | `agents` | `MISE_SKILL_AGENTS`（未設定なら `claude-code`） | リンク先をエージェント名で指定 |
 | `dirs` | なし | リンク先をパスで追加指定。`agents` と併用すると両方に張る |
-| `rename` | なし | スキルの新しい名前（`{ 元の名前 = "新しい名前" }`）。後述 |
-
-`rename` は、別のツールと同じ名前のスキルを並べて置くためのもの。リンク名だけを変えても、
-Claude Code はスキルを `SKILL.md` の `name:` で呼ぶ（ディレクトリ名は既定値でしかない）ため、
-同じ名前のスキルが 2 つ並ぶことになる。そこで、インストール先（`install_path`）の
-`SKILL.md` の `name:` も新しい名前に書き換える。これでリンク名（エージェントから見た
-ディレクトリ名）と `name:` も一致したままになる。
-`rename` に書いた名前が選ばれたスキルに無い、新しい名前が不正、改名後に名前が重なる、
-のいずれかなら install を失敗させる。
 
 エージェント名と実際のディレクトリの対応はプラグインに内蔵する。
 
@@ -171,7 +162,6 @@ symlink はリンク先と同じディレクトリに一時的な名前で作り
 | タグが無いリポジトリで `latest` | install を失敗させ、`ref:<branch>` の使用を案内する |
 | 取得物に `SKILL.md` が無い | install を失敗させる |
 | `skills` に書いた名前が無い | install を失敗させる（綴り間違いに気づけるように） |
-| `rename` の名前が無い・不正・改名後に重なる | install を失敗させる |
 | 同じリポジトリ内に同名スキルが複数 | install を失敗させる |
 | 実ディレクトリ・他人のリンクと衝突 | 触らず警告し、install は成功させる |
 | 別の `skill:` ツールのリンクと衝突（同名スキル） | 触らず警告し、install は成功させる（先に入れた方が残る） |

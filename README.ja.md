@@ -40,7 +40,6 @@ mise install
 | `skills` | 見つかったすべてのスキル | リンクするスキル名（`SKILL.md` の `name:`） |
 | `agents` | `MISE_SKILL_AGENTS`、なければ `claude-code` | リンク先にするエージェント |
 | `dirs` | なし | 追加でリンクするディレクトリ（絶対パスか `~/...`） |
-| `rename` | なし | スキルの新しい名前（例: `{ alpha = "my-alpha" }`）。リンク名と、インストール先の `SKILL.md` の `name:` の両方が変わる |
 
 | エージェント | ディレクトリ |
 |---|---|
@@ -54,14 +53,13 @@ mise install
 | やりたいこと | 実行するもの |
 |---|---|
 | スキルを足す、新しい版に上げる | `mise install` / `mise upgrade` |
-| `skills` / `agents` / `dirs` / `rename` の変更を反映する | `mise install -f skill:owner/repo` |
+| `skills` / `agents` / `dirs` の変更を反映する | `mise install -f skill:owner/repo` |
 | `ref:` で入れたもの（例: `ref:main`）をブランチの最新コミットに上げる | `mise install -f skill:owner/repo@ref:main` |
 | スキルのリンクを外す | `[tools]` から消して `mise prune` |
 
 mise-skill が作っていない既存のディレクトリや、生きているリンクには触れない。インストールは
 警告を出してそれを飛ばす。別の `skill:` ツールが張ったリンクも同じで、2 つのツールが同じ名前の
-スキルを持つときは先に入れた方が残る。`skills` でどちらかを選ぶか、`rename` で片方の名前を
-変える。同じ名前の切れたリンクは張り替える。
+スキルを持つときは先に入れた方が残る（`skills` で選ぶ）。同じ名前の切れたリンクは張り替える。
 
 ## 開発
 

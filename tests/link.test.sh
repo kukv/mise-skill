@@ -80,28 +80,6 @@ echo "$out" | grep -q 'another tool links it' || fail "other-tool: should warn, 
 m uninstall "$fx@0.1.0" >/dev/null 2>&1 || fail "other-tool: uninstall"
 [ -L "$h/.claude/skills/alpha" ] || fail "other-tool: uninstall must keep the other tool's link"
 
-# rename links a skill under another name and renames it in SKILL.md, which is what agents read;
-# with it, a skill whose name another tool already links can be linked beside it
-cat <<'EOT' | config
-[tools]
-"skill:kukv/mise-skill-fixtures" = { version = "0.1.0", rename = { alpha = "fx-alpha" } }
-EOT
-m install >/dev/null 2>&1 || fail "rename: install"
-[ "$(cat "$h/.claude/skills/alpha/.mise-skill")" = "$other" ] || fail "rename: the other tool's alpha must stay"
-grep -q '^name: fx-alpha$' "$h/.claude/skills/fx-alpha/SKILL.md" ||
-  fail "rename: fx-alpha should be linked with name: fx-alpha"
-[ -L "$h/.claude/skills/beta" ] || fail "rename: beta should keep its name"
-
-# rename fails on a name that is not selected, an invalid name, and a name taken by another skill
-i=0
-for bad in '{ nope = "x" }' '{ alpha = "../x" }' '{ alpha = "beta" }'; do
-  i=$((i + 1))
-  new_home "rename-bad-$i"
-  printf '[tools]\n"%s" = { version = "0.1.0", rename = %s }\n' "$fx" "$bad" | config
-  if m install >/dev/null 2>&1; then fail "rename-bad: $bad should fail"; fi
-  [ -e "$h/.claude/skills/alpha" ] && fail "rename-bad: $bad must not link anything"
-done
-
 # dirs on another filesystem: links are made and replaced there, with no temporary link left
 fs_of() { df -P "$1" | awk 'NR == 2 { print $1 }'; }
 if [ -d /dev/shm ] && [ -w /dev/shm ] && [ "$(fs_of /dev/shm)" != "$(fs_of "$tmp")" ]; then
