@@ -22,6 +22,7 @@
 - mise 2026.10.10 で動作確認した挙動に依存する（spec の「確認済みの前提」）。
 - エラーメッセージは `mise-skill: ` で始める。
 - コミットメッセージの末尾に `Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>` を付ける。
+- `kukv/structure` での作業（Task 1 / 8）では、コミットメッセージを `git commit -F <file>`、PR 本文を `gh pr create --body-file <file>` で渡す。structure の PreToolUse フックはコマンド全体の文字列を検査するため。
 
 ## File Structure
 
@@ -521,7 +522,7 @@ git commit -m "feat: タグか ref の tarball を展開し、skills オプシ�
   - `targets.AGENTS: table<string, string>`（エージェント名 → `$HOME` からの相対パス）
   - `targets.resolve(options: table, env_agents: string|nil, home: string) -> string[]`（重複を除いた絶対パス、指定順）
   - `links.MARKER = ".mise-skill"`、`links.RECORD = ".mise-skill.json"`
-  - `links.classify(path: string) -> "missing"|"ours"|"foreign", owner: string|nil`
+  - `links.classify(path: string) -> "missing"|"dangling"|"ours"|"foreign", owner: string|nil`
   - `links.install(install_path: string, tmpdir: string, selected: {name, dir}[], dirs: string[])`
 
 - [ ] **Step 1: 失敗するテストを書く**
@@ -582,6 +583,22 @@ printf '[tools]\n"skill:coji/natural-japanese" = "1.5.2"\n' | config
 m install >/dev/null 2>&1 || fail "conflict: install should still succeed"
 [ -L "$h/.claude/skills/natural-japanese" ] && fail "conflict: the real directory must not be replaced"
 [ "$(cat "$h/.claude/skills/natural-japanese/SKILL.md")" = mine ] || fail "conflict: contents changed"
+
+# a dangling link with the same name is replaced
+new_home dangling
+mkdir -p "$h/.claude/skills"
+ln -s "$h/gone" "$h/.claude/skills/natural-japanese"
+printf '[tools]\n"skill:coji/natural-japanese" = "1.5.2"\n' | config
+m install >/dev/null 2>&1 || fail "dangling: install"
+[ -f "$h/.claude/skills/natural-japanese/SKILL.md" ] || fail "dangling: link should be replaced"
+
+# a failed install (typo in skills) does not leave a version that plain `mise install` skips
+new_home typo
+printf '[tools]\n"skill:coji/natural-japanese" = { version = "1.5.2", skills = ["natural-japanes"] }\n' | config
+m install >/dev/null 2>&1 && fail "typo: install should fail"
+printf '[tools]\n"skill:coji/natural-japanese" = { version = "1.5.2", skills = ["natural-japanese"] }\n' | config
+m install >/dev/null 2>&1 || fail "typo: install after the fix"
+[ -L "$h/.claude/skills/natural-japanese" ] || fail "typo: plain mise install after the fix should link"
 
 echo "ok link"
 ```
@@ -677,14 +694,19 @@ local function write(path, text)
     f:close()
 end
 
--- classify(path) -> "missing", "ours" with the owning install_path, or "foreign".
+-- classify(path) -> "missing", "dangling", "ours" with the owning install_path, or "foreign".
 -- file.stat cannot read a link's target, so ownership is the marker seen through the link.
+-- A dangling link (its target is gone) is replaceable: it serves no agent, and it is what a
+-- mise-skill link becomes when its install directory is deleted by hand.
 function M.classify(path)
     local st = file.stat(path)
     if st == nil then
         return "missing", nil
     end
     if st.is_symlink then
+        if not file.exists(path) then
+            return "dangling", nil
+        end
         local marker = file.join_path(path, M.MARKER)
         if file.exists(marker) then
             return "ours", file.read(marker)
@@ -761,6 +783,23 @@ end
 
 Run: `for t in tests/*.test.sh; do GITHUB_TOKEN="$(gh auth token)" sh "$t" || exit 1; done`
 Expected: `ok install`、`ok link`、`ok versions`
+
+`typo:` のケースが失敗した場合（mise が展開済みの `install_path` を残し、次の `mise install` が入れ済みとして飛ばす場合）は、`hooks/backend_install.lua` を「`download_path` 配下に展開して選択まで済ませ、成功してから `install_path` へ移す」形に変える。展開とスキル選択の部分を次に置き換える:
+
+```lua
+    -- Extract and select outside install_path, so a bad option leaves no half-installed version.
+    local staging = file.join_path(ctx.download_path, "source")
+    archiver.decompress(archive, staging, { strip_components = 1 })
+    skills.select(skills.discover(staging), ctx.options.skills)
+    for _, entry in ipairs(file.list(staging)) do
+        file.move(entry, file.join_path(ctx.install_path, entry:sub(#staging + 2)))
+    end
+    local selected = skills.select(skills.discover(ctx.install_path), ctx.options.skills)
+```
+
+それでも失敗するなら、README の「Keeping links in sync」に「install が失敗したら `mise install -f` でやり直す」と書いてテストを `install -f` に変え、spec にも同じ制約を書き足す。
+
+`upgrade:` 系（Task 5）や `options:` で既存リンクの張り替えが失敗する場合（`file.move` が既存の symlink を rename で置き換えられない場合）は、`M.install` の `place` 呼び出しの前に、`classify` が `ours` か `dangling` を返したときだけ `os.remove(dst)` する。
 
 - [ ] **Step 7: コミット**
 
@@ -1086,7 +1125,7 @@ terraform -chdir=$HOME/dev/ghq/github.com/kukv/structure/terraform validate
 
 - [ ] **Step 1: 現状を読む**
 
-`mise.toml` の `[tools]` で `npm:skills` を宣言している場所と、プラグインの宣言方法（mise config の `[plugins]`）を確認する。`bootstrap/post-tools.sh` のスキル用ループ（`# Claude Code skills:` から `EOT` まで）を確認する。
+`npm:skills` を宣言しているのが、実際にグローバル設定として配置される mise config（`~/.config/mise/config.toml` に入るもの）かどうかを確かめる。`skill:*` のツールと `MISE_SKILL_AGENTS` は同じ配置先の config に置く（hook がその `[env]` を読むため）。あわせて `mise.toml` の `[tools]` で `npm:skills` を宣言している場所と、プラグインの宣言方法（mise config の `[plugins]`）を確認する。`bootstrap/post-tools.sh` のスキル用ループ（`# Claude Code skills:` から `EOT` まで）を確認する。
 
 - [ ] **Step 2: mise config を書き換える**
 
