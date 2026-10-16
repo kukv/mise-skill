@@ -34,15 +34,40 @@ function M.classify(path)
     return "foreign", nil
 end
 
--- place(src, dst, tmpdir): point dst at src. file.symlink fails when dst's parent is missing,
--- but file.move creates parents and renames over an existing link, so build the link in tmpdir.
-local counter = 0
-local function place(src, dst, tmpdir)
-    counter = counter + 1
-    local tmp = file.join_path(tmpdir, "mise-skill-link-" .. counter)
+local function dirname(path)
+    return (path:match("^(.*)/[^/]*$"))
+end
+
+-- link_beside(src, dst): build the link next to dst and rename it over dst. The rename replaces
+-- an existing link in one step and, unlike a rename from tmpdir, never crosses filesystems.
+local function link_beside(src, dst)
+    local tmp = dst .. ".mise-skill-tmp"
     os.remove(tmp) -- a stale link from an earlier failed run would make symlink fail
     file.symlink(src, tmp)
-    file.move(tmp, dst)
+    local ok, err = pcall(file.move, tmp, dst)
+    if not ok then
+        os.remove(tmp) -- an agent would read a leftover link as one more skill
+        error(err, 0)
+    end
+end
+
+-- place(src, dst, tmpdir): point dst at src. file.symlink fails when dst's parent is missing,
+-- but file.move creates parents, so then the link is built in tmpdir and moved. If dst is on
+-- another filesystem that move fails after creating the parent, and the link is built beside.
+local function place(src, dst, tmpdir)
+    if not file.exists(dirname(dst)) then
+        local tmp = file.join_path(tmpdir, "mise-skill-link")
+        os.remove(tmp)
+        file.symlink(src, tmp)
+        local ok, err = pcall(file.move, tmp, dst)
+        os.remove(tmp)
+        if ok then
+            return
+        elseif not file.exists(dirname(dst)) then
+            error(err, 0)
+        end
+    end
+    link_beside(src, dst)
 end
 
 -- install(install_path, tmpdir, selected, dirs): mark each selected skill as owned by
@@ -53,8 +78,12 @@ function M.install(install_path, tmpdir, selected, dirs)
         write(file.join_path(skill.dir, M.MARKER), install_path)
         for _, dir in ipairs(dirs) do
             local dst = file.join_path(dir, skill.name)
-            if M.classify(dst) == "foreign" then
+            local kind, owner = M.classify(dst)
+            if kind == "foreign" then
                 log.warn("mise-skill: skipped " .. dst .. ": it exists and mise-skill did not create it")
+            elseif kind == "ours" and dirname(owner) ~= dirname(install_path) then
+                -- Another version of this tool is replaced (that is an upgrade); another tool is not.
+                log.warn("mise-skill: skipped " .. dst .. ": another tool links it, installed at " .. owner)
             else
                 local ok, err = pcall(place, skill.dir, dst, tmpdir)
                 if ok then

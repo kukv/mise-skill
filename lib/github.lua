@@ -49,14 +49,15 @@ function M.versions(tags)
 end
 
 -- ref_for(repo, version) -> the git ref to download. "ref:<x>" is used as is; a version is
--- matched against the tags with or without a leading "v".
+-- matched against the tags with or without a leading "v". A tag is returned as refs/tags/<tag>
+-- so that a branch of the same name is never downloaded instead.
 function M.ref_for(repo, version)
     if version:sub(1, 4) == "ref:" then
         return version:sub(5)
     end
     for _, tag in ipairs(M.tags(repo)) do
         if tag == version or tag == "v" .. version then
-            return tag
+            return "refs/tags/" .. tag
         end
     end
     error("mise-skill: " .. repo .. " has no tag " .. version .. " or v" .. version)
