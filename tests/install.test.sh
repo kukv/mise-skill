@@ -1,5 +1,6 @@
 #!/bin/sh
 # BackendInstall: fetch a tag or ref into install_path and select skills.
+# shellcheck source=tests/lib.sh
 . "$(dirname "$0")/lib.sh"
 installs() { echo "$h/.local/share/mise/installs"; }
 

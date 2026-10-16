@@ -1,3 +1,4 @@
+# shellcheck shell=sh
 # Shared helpers for the tests. Source it: . "$(dirname "$0")/lib.sh"
 # Each test runs mise in a throwaway HOME with this checkout linked as the "skill" plugin.
 # GITHUB_TOKEN / MISE_GITHUB_TOKEN are passed through so GitHub API calls are authenticated.

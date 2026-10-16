@@ -5,7 +5,7 @@ local github = require("github")
 function PLUGIN:BackendListVersions(ctx)
     local versions = github.versions(github.tags(ctx.tool))
     if #versions == 0 then
-        error('mise-skill: ' .. ctx.tool .. ' has no tags; pin a branch or commit instead, e.g. "ref:main"')
+        error("mise-skill: " .. ctx.tool .. ' has no tags; pin a branch or commit instead, e.g. "ref:main"')
     end
     return { versions = versions }
 end

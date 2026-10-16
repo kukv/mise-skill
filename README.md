@@ -61,8 +61,13 @@ install warns and skips it. A dangling link with the same name is replaced.
 ## Development
 
 ```sh
-for t in tests/*.test.sh; do sh "$t" || exit 1; done
+mise install   # dev tools pinned in mise.toml
+mise run ci    # lint + test
 ```
+
+`mise run lint` checks Lua (lua-language-server, stylua), the shell tests (shellcheck) and the
+workflows (actionlint) with [hk](https://hk.jdx.dev); `mise run lint-fix` fixes what it can.
+`mise run test` runs every `tests/*.test.sh` and stops at the first failure.
 
 The tests use real GitHub repositories. They authenticate with the gh CLI's login (or GITHUB_TOKEN) to avoid API rate limits.
 

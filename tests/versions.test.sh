@@ -1,5 +1,6 @@
 #!/bin/sh
 # BackendListVersions: tags become versions without the leading "v"; a repo without tags errors.
+# shellcheck source=tests/lib.sh
 . "$(dirname "$0")/lib.sh"
 
 new_home versions

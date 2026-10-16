@@ -1,5 +1,6 @@
 #!/bin/sh
 # Linking: where links go, what they point at, and what is left alone.
+# shellcheck source=tests/lib.sh
 . "$(dirname "$0")/lib.sh"
 installs() { echo "$h/.local/share/mise/installs"; }
 
