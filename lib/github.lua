@@ -48,4 +48,23 @@ function M.versions(tags)
     return semver.sort(out)
 end
 
+-- ref_for(repo, version) -> the git ref to download. "ref:<x>" is used as is; a version is
+-- matched against the tags with or without a leading "v".
+function M.ref_for(repo, version)
+    if version:sub(1, 4) == "ref:" then
+        return version:sub(5)
+    end
+    for _, tag in ipairs(M.tags(repo)) do
+        if tag == version or tag == "v" .. version then
+            return tag
+        end
+    end
+    error("mise-skill: " .. repo .. " has no tag " .. version .. " or v" .. version)
+end
+
+-- tarball_url(repo, ref) -> the source tarball. No token: codeload.github.com rejects it.
+function M.tarball_url(repo, ref)
+    return "https://codeload.github.com/" .. repo .. "/tar.gz/" .. ref
+end
+
 return M
