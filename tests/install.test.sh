@@ -8,30 +8,33 @@ new_home install
 echo '[tools]' | config
 
 # a tagged version, with or without the "v" in the tag
-m install skill:coji/natural-japanese@1.5.2 >/dev/null 2>&1 || fail "install natural-japanese@1.5.2"
-[ -f "$(installs)/skill-coji-natural-japanese/1.5.2/skills/natural-japanese/SKILL.md" ] ||
-  fail "natural-japanese SKILL.md should be extracted"
+m install skill:kukv/mise-skill-fixtures@0.1.0 >/dev/null 2>&1 || fail "install fixtures@0.1.0"
+[ -f "$(installs)/skill-kukv-mise-skill-fixtures/0.1.0/skills/alpha/SKILL.md" ] ||
+  fail "alpha SKILL.md should be extracted"
+[ -f "$(installs)/skill-kukv-mise-skill-fixtures/0.1.0/nested/deep/gamma/SKILL.md" ] ||
+  fail "gamma SKILL.md should be extracted"
 
-# a ref on a repository without tags
-m install skill:ast-grep/agent-skill@ref:main >/dev/null 2>&1 || fail "install agent-skill@ref:main"
-[ -f "$(installs)/skill-ast-grep-agent-skill/ref-main/ast-grep/skills/outline/SKILL.md" ] ||
-  fail "agent-skill should be extracted"
+# a ref (a branch here)
+m install skill:kukv/mise-skill-fixtures@ref:invalid-name >/dev/null 2>&1 || fail "install fixtures@ref:invalid-name"
+[ -f "$(installs)/skill-kukv-mise-skill-fixtures/ref-invalid-name/skills/alpha/SKILL.md" ] ||
+  fail "the ref install should be extracted"
 
 # no SKILL.md at all
-if err="$(m install skill:jdx/mise-backend-plugin-template@ref:main 2>&1)"; then
+if err="$(m install skill:kukv/mise-skill-fixtures@ref:no-skills 2>&1)"; then
   fail "a repository without SKILL.md should fail"
 fi
 echo "$err" | grep -q 'no SKILL.md' || fail "error should say no SKILL.md, got: $err"
 
-# skills option names a skill that does not exist
-printf '[tools]\n"skill:nanaism/yomiyasu" = { version = "latest", skills = ["nope"] }\n' | config
+# skills option names a skill that does not exist (fresh home: "latest" would match an installed version)
+new_home unknown-skill
+printf '[tools]\n"skill:kukv/mise-skill-fixtures" = { version = "latest", skills = ["nope"] }\n' | config
 if err="$(m install 2>&1)"; then
   fail "an unknown name in skills should fail"
 fi
 echo "$err" | grep -q 'nope' || fail "error should name the unknown skill, got: $err"
 
 # an unknown version
-if m install skill:coji/natural-japanese@0.0.0-nope >/dev/null 2>&1; then
+if m install skill:kukv/mise-skill-fixtures@0.0.0-nope >/dev/null 2>&1; then
   fail "an unknown version should fail"
 fi
 

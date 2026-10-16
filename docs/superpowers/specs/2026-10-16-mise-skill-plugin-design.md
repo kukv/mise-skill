@@ -168,11 +168,14 @@ symlink は `download_path` に作ってから `file.move` で目的の場所へ
 dotfiles の `tests/bootstrap/*.test.sh` と同じく素の sh で書き、使い捨ての
 `HOME` / `MISE_DATA_DIR` で実行する。
 
+- テストの対象は実在のスキルではなく、自前の fixture リポジトリ `kukv/mise-skill-fixtures` にする。
+  タグ `v0.1.0` / `v0.2.0`（版でないタグ `draft-v9` も混ぜる）、スキル `alpha` `beta` `gamma`、
+  ブランチ `no-skills`（`SKILL.md` 無し）、`invalid-name`（不正な名前のスキル入り）を置く。
+  タグ無しのリポジトリには `kukv/structure` を使う。
 - `tests/install.test.sh`: `mise plugins link` で実際に入れる。
-  - `example/writing-guide`（タグあり、`latest` と版固定）
-  - `example/code-search`（タグ無し、`ref:main`）
-  - `example/prose-lint`
-  - タグ無しで `latest` を指定したときに失敗すること
+  - fixture のタグ指定（`@0.1.0`）と `ref:`（`ref:invalid-name`）
+  - `ref:no-skills` で `SKILL.md` 無しとして失敗すること
+  - タグ無しの `kukv/structure` で `latest` を指定したときに失敗すること
   - `skills` に無い名前・未知の `agents` で失敗すること
 - `tests/link.test.sh`:
   - install でリンクが張られること、版の更新で張り替わること

@@ -71,6 +71,6 @@ mise run ci    # lint + test
 workflows (actionlint) with [hk](https://hk.jdx.dev); `mise run lint-fix` fixes what it can.
 `mise run test` runs every `tests/*.test.sh` and stops at the first failure.
 
-The tests use real GitHub repositories. They authenticate with the gh CLI's login (or GITHUB_TOKEN) to avoid API rate limits.
+The tests install fictional skills from the fixture repository kukv/mise-skill-fixtures. They authenticate with the gh CLI's login (or GITHUB_TOKEN) to avoid API rate limits.
 
 Tested with mise 2026.10.10 on Linux and macOS.

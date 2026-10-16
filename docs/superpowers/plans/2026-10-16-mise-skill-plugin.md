@@ -44,16 +44,14 @@
 | `.github/workflows/test.yml` | Linux / macOS でテスト |
 | `README.md` | 使い方 |
 
-テストはネットワークで実際の GitHub リポジトリを使う。GitHub API のレート制限を避けるため、テスト実行時は `GITHUB_TOKEN`（または `MISE_GITHUB_TOKEN`）を環境に入れる。ローカルでは `GITHUB_TOKEN="$(gh auth token)" sh tests/xxx.test.sh`。
+テストはネットワークで GitHub 上の fixture リポジトリ `kukv/mise-skill-fixtures`（タグ無しの確認だけ `kukv/structure`）を使う。GitHub API のレート制限を避けるため、テスト実行時は `GITHUB_TOKEN`（または `MISE_GITHUB_TOKEN`）を環境に入れる。ローカルでは `GITHUB_TOKEN="$(gh auth token)" sh tests/xxx.test.sh`。
 
 テストに使うリポジトリ:
 
 | リポジトリ | 性質 |
 |---|---|
-| `example/writing-guide` | タグあり（`v0.1.0`、`v0.2.0` など。版でないタグ `draft-v9` も混ざる）。スキル `writing-guide` が `skills/writing-guide/` に 1 つ |
-| `example/prose-lint` | タグあり。スキル `prose-lint` |
-| `example/code-search` | タグ無し、既定ブランチ `main`。スキル `code-search` と `code-search-outline` |
-| `example/no-skills` | `SKILL.md` が無い、既定ブランチ `main` |
+| `kukv/mise-skill-fixtures` | タグ `v0.1.0` / `v0.2.0`（版でないタグ `draft-v9` も混ざる）。スキル `alpha` `beta`（`skills/`）と `gamma`（`nested/deep/gamma/`）。ブランチ `no-skills`（`SKILL.md` 無し）、`invalid-name`（不正な名前 `../../escape` のスキル入り） |
+| `kukv/structure` | タグ無し、既定ブランチ `main`。スキル無し |
 
 ---
 
