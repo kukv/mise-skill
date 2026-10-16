@@ -67,4 +67,23 @@ function M.install(install_path, tmpdir, selected, dirs)
     write(file.join_path(install_path, M.RECORD), json.encode(placed))
 end
 
+-- uninstall(install_path): remove the links this version recorded that still point at it.
+-- ctx.options is unreliable here (defaults only during prune), so use the record.
+-- After an upgrade the old version is removed later; its links already point elsewhere.
+function M.uninstall(install_path)
+    local record = file.join_path(install_path, M.RECORD)
+    if not file.exists(record) then
+        return
+    end
+    for _, dst in ipairs(json.decode(file.read(record))) do
+        local kind, owner = M.classify(dst)
+        if kind == "ours" and owner == install_path then
+            local ok, err = os.remove(dst)
+            if not ok then
+                log.warn("mise-skill: could not remove " .. dst .. ": " .. tostring(err))
+            end
+        end
+    end
+end
+
 return M

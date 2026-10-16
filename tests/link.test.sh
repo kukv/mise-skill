@@ -68,4 +68,37 @@ printf '[tools]\n"skill:coji/natural-japanese" = { version = "1.5.2", skills = [
 m install >/dev/null 2>&1 || fail "typo: install after the fix"
 [ -L "$h/.claude/skills/natural-japanese" ] || fail "typo: plain mise install after the fix should link"
 
+# upgrading relinks to the new version; removing the old version keeps the new link
+new_home upgrade
+printf '[tools]\n"skill:coji/natural-japanese" = "1.5.1"\n' | config
+m install >/dev/null 2>&1 || fail "upgrade: install 1.5.1"
+printf '[tools]\n"skill:coji/natural-japanese" = "1.5.2"\n' | config
+m install >/dev/null 2>&1 || fail "upgrade: install 1.5.2"
+[ "$(cat "$h/.claude/skills/natural-japanese/.mise-skill")" = "$(installs)/skill-coji-natural-japanese/1.5.2" ] ||
+  fail "upgrade: link should point at 1.5.2"
+m uninstall skill:coji/natural-japanese@1.5.1 >/dev/null 2>&1 || fail "upgrade: uninstall 1.5.1"
+[ -L "$h/.claude/skills/natural-japanese" ] || fail "upgrade: removing 1.5.1 must keep the 1.5.2 link"
+
+# install -f applies changed options and drops links that are no longer wanted
+cat <<'EOT' | config
+[tools]
+"skill:coji/natural-japanese" = { version = "1.5.2", agents = ["claude-code", "codex"] }
+EOT
+m install -f skill:coji/natural-japanese@1.5.2 >/dev/null 2>&1 || fail "reinstall: add codex"
+[ -L "$h/.agents/skills/natural-japanese" ] || fail "reinstall: codex link should appear"
+cat <<'EOT' | config
+[tools]
+"skill:coji/natural-japanese" = { version = "1.5.2", agents = ["codex"] }
+EOT
+m install -f skill:coji/natural-japanese@1.5.2 >/dev/null 2>&1 || fail "reinstall: drop claude-code"
+[ -e "$h/.claude/skills/natural-japanese" ] && fail "reinstall: claude-code link should be gone"
+[ -L "$h/.agents/skills/natural-japanese" ] || fail "reinstall: codex link should stay"
+
+# removing the tool from the config and pruning removes its links, and only its links
+mkdir -p "$h/.agents/skills/handmade"
+echo '[tools]' | config
+m prune >/dev/null 2>&1 || fail "prune"
+[ -e "$h/.agents/skills/natural-japanese" ] && fail "prune: link should be gone"
+[ -d "$h/.agents/skills/handmade" ] || fail "prune: other entries must stay"
+
 echo "ok link"
