@@ -3,8 +3,8 @@
 # shellcheck source=tests/lib.sh
 . "$(dirname "$0")/lib.sh"
 installs() { echo "$h/.local/share/mise/installs"; }
-fx=skill:kukv/mise-skill-fixtures
-dir=skill-kukv-mise-skill-fixtures
+fx=skill:bright-room-sandbox/mise-skill-fixtures
+dir=skill-bright-room-sandbox-mise-skill-fixtures
 
 # default agent: claude-code only
 new_home default
@@ -31,7 +31,7 @@ cat <<'EOT' | config
 [env]
 MISE_SKILL_AGENTS = "claude-code,codex"
 [tools]
-"skill:kukv/mise-skill-fixtures" = { version = "0.1.0", skills = ["gamma"], agents = ["codex"], dirs = ["~/extra/skills"] }
+"skill:bright-room-sandbox/mise-skill-fixtures" = { version = "0.1.0", skills = ["gamma"], agents = ["codex"], dirs = ["~/extra/skills"] }
 EOT
 m install >/dev/null 2>&1 || fail "options: install"
 [ -L "$h/.agents/skills/gamma" ] || fail "options: codex link"
@@ -124,13 +124,13 @@ m uninstall "$fx@0.1.0" >/dev/null 2>&1 || fail "upgrade: uninstall 0.1.0"
 # install -f applies changed options and drops links that are no longer wanted
 cat <<'EOT' | config
 [tools]
-"skill:kukv/mise-skill-fixtures" = { version = "0.2.0", agents = ["claude-code", "codex"] }
+"skill:bright-room-sandbox/mise-skill-fixtures" = { version = "0.2.0", agents = ["claude-code", "codex"] }
 EOT
 m install -f "$fx@0.2.0" >/dev/null 2>&1 || fail "reinstall: add codex"
 [ -L "$h/.agents/skills/alpha" ] || fail "reinstall: codex link should appear"
 cat <<'EOT' | config
 [tools]
-"skill:kukv/mise-skill-fixtures" = { version = "0.2.0", agents = ["codex"] }
+"skill:bright-room-sandbox/mise-skill-fixtures" = { version = "0.2.0", agents = ["codex"] }
 EOT
 m install -f "$fx@0.2.0" >/dev/null 2>&1 || fail "reinstall: drop claude-code"
 [ -e "$h/.claude/skills/alpha" ] && fail "reinstall: claude-code link should be gone"
