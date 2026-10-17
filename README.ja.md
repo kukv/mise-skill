@@ -72,7 +72,7 @@ mise run ci    # lint + test
 （shellcheck）、ワークフロー（actionlint）を検査する。`mise run lint-fix` は直せるものを直す。
 `mise run test` は `tests/*.test.sh` をすべて実行し、最初の失敗で止まる。
 
-テストは fixture リポジトリ kukv/mise-skill-fixtures の架空のスキルを install する。API のレート制限を避けるため、gh CLI のログイン
+テストは fixture リポジトリ bright-room-sandbox/mise-skill-fixtures の架空のスキルを install する。API のレート制限を避けるため、gh CLI のログイン
 （または GITHUB_TOKEN）で認証する。
 
 mise 2026.10.10 の Linux と macOS で動作を確認している。

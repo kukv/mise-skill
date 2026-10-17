@@ -174,14 +174,14 @@ symlink はリンク先と同じディレクトリに一時的な名前で作り
 dotfiles の `tests/bootstrap/*.test.sh` と同じく素の sh で書き、使い捨ての
 `HOME` / `MISE_DATA_DIR` で実行する。
 
-- テストの対象は実在のスキルではなく、自前の fixture リポジトリ `kukv/mise-skill-fixtures` にする。
+- テストの対象は実在のスキルではなく、自前の fixture リポジトリ `bright-room-sandbox/mise-skill-fixtures` にする。
   タグ `v0.1.0` / `v0.2.0`（版でないタグ `draft-v9` も混ぜる）、スキル `alpha` `beta` `gamma`、
   ブランチ `no-skills`（`SKILL.md` 無し）、`invalid-name`（不正な名前のスキル入り）を置く。
-  タグ無しのリポジトリには fixture の `kukv/mise-skill-fixtures-untagged` を使う。
+  タグ無しのリポジトリには fixture の `bright-room-sandbox/mise-skill-fixtures-untagged` を使う。
 - `tests/install.test.sh`: `mise plugins link` で実際に入れる。
   - fixture のタグ指定（`@0.1.0`）と `ref:`（`ref:invalid-name`）
   - `ref:no-skills` で `SKILL.md` 無しとして失敗すること
-  - タグ無しの `kukv/mise-skill-fixtures-untagged` で `latest` を指定したときに失敗すること
+  - タグ無しの `bright-room-sandbox/mise-skill-fixtures-untagged` で `latest` を指定したときに失敗すること
   - `skills` に無い名前・未知の `agents` で失敗すること
 - `tests/link.test.sh`:
   - install でリンクが張られること、版の更新で張り替わること
