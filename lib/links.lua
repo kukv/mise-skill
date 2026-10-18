@@ -111,7 +111,14 @@ function M.install(install_path, tmp, selected, dirs)
             end
         end
     end
-    write(record, json.encode(placed))
+    -- Rename over the record so a concurrent read_record never sees a partial file.
+    local tmp_record = record .. ".tmp" .. tostring(os.time()) .. tostring(math.random(1e9))
+    write(tmp_record, json.encode(placed))
+    local renamed, rerr = os.rename(tmp_record, record)
+    if not renamed then
+        os.remove(tmp_record)
+        error(rerr, 0)
+    end
 end
 
 -- uninstall(install_path): remove the links this version recorded that still point at it.
