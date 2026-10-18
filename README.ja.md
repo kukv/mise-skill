@@ -40,11 +40,34 @@ mise install
 | `skills` | 見つかったすべてのスキル | リンクするスキル名（`SKILL.md` の `name:`） |
 | `agents` | `MISE_SKILL_AGENTS`、なければ `claude-code` | リンク先にするエージェント |
 | `dirs` | なし | 追加でリンクするディレクトリ（絶対パスか `~/...`） |
+| `root` | `~` | エージェントのディレクトリの基準（絶対パスか `~/...`）。例: `"{{config_root}}"` |
 
 | エージェント | ディレクトリ |
 |---|---|
 | `claude-code` | `~/.claude/skills` |
 | `codex` | `~/.agents/skills` |
+
+## プロジェクト単位
+
+プロジェクトの `mise.toml` で `root = "{{config_root}}"` と書くと、そのプロジェクトの
+`.claude/skills` / `.agents/skills` にリンクする。`{{config_root}}` は mise がプロジェクトの
+ディレクトリに展開するので、このファイルはコミットして共有できる。
+
+```toml
+# <project>/mise.toml
+[tools]
+"skill:example/writing-guide" = { version = "latest", root = "{{config_root}}", agents = ["claude-code", "codex"] }
+```
+
+版は mise の installs ディレクトリで共有し、ほかのプロジェクトで入れた版を使うときもリンクは
+張られる（`mise install` 時か、activate したシェルでプロジェクトに入ったとき）。
+
+- リンクはこのマシンの installs ディレクトリを指す。`.claude/skills/<スキル名>` と
+  `.agents/skills/<スキル名>` は gitignore に入れる。
+- プロジェクトの `mise.toml` からツールを消しても、リンクはその版を prune するまで残る。
+- 手で消したリンクは `mise cache clear` のあとに張り直される。
+- 1 つのプロジェクトで `mise install -f` すると、ほかのプロジェクトのリンクも外れ、それぞれで
+  次に mise が動いたときに張り直される。
 
 ## リンクを最新に保つ
 

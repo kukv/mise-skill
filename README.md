@@ -40,11 +40,34 @@ installed by ref: `"ref:main"` or `"ref:<commit>"`.
 | `skills` | every skill found | Skill names (the `name:` in `SKILL.md`) to link |
 | `agents` | `MISE_SKILL_AGENTS`, else `claude-code` | Agents to link for |
 | `dirs` | none | Extra directories (absolute or `~/...`) to link into |
+| `root` | `~` | Base of the agents' directories (absolute or `~/...`), e.g. `"{{config_root}}"` |
 
 | Agent | Directory |
 |---|---|
 | `claude-code` | `~/.claude/skills` |
 | `codex` | `~/.agents/skills` |
+
+## Project scope
+
+In a project's `mise.toml`, set `root = "{{config_root}}"` to link into the project's own
+`.claude/skills` / `.agents/skills`. mise expands `{{config_root}}` to the project directory, so
+the file can be committed and shared.
+
+```toml
+# <project>/mise.toml
+[tools]
+"skill:example/writing-guide" = { version = "latest", root = "{{config_root}}", agents = ["claude-code", "codex"] }
+```
+
+A version is shared in mise's installs directory, and a project that uses a version installed for
+another project is linked too (on `mise install`, or when an activated shell enters the project).
+
+- The links point into this machine's installs directory: gitignore `.claude/skills/<skill name>`
+  and `.agents/skills/<skill name>`.
+- Removing the tool from a project's `mise.toml` leaves its links until the version is pruned.
+- A link removed by hand comes back after `mise cache clear`.
+- `mise install -f` in one project removes the other projects' links too; each gets them back the
+  next time mise runs there.
 
 ## Keeping links in sync
 
