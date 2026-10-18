@@ -16,6 +16,6 @@ function PLUGIN:BackendInstall(ctx)
     archiver.decompress(archive, ctx.install_path, { strip_components = 1 })
 
     local selected = skills.select(skills.discover(ctx.install_path), ctx.options.skills)
-    links.install(ctx.install_path, ctx.download_path, selected, dirs)
+    links.install(ctx.install_path, file.join_path(ctx.download_path, "mise-skill-link"), selected, dirs)
     return {}
 end

@@ -51,12 +51,11 @@ local function link_beside(src, dst)
     end
 end
 
--- place(src, dst, tmpdir): point dst at src. file.symlink fails when dst's parent is missing,
--- but file.move creates parents, so then the link is built in tmpdir and moved. If dst is on
+-- place(src, dst, tmp): point dst at src. file.symlink fails when dst's parent is missing,
+-- but file.move creates parents, so then the link is built at tmp and moved. If dst is on
 -- another filesystem that move fails after creating the parent, and the link is built beside.
-local function place(src, dst, tmpdir)
+local function place(src, dst, tmp)
     if not file.exists(dirname(dst)) then
-        local tmp = file.join_path(tmpdir, "mise-skill-link")
         os.remove(tmp)
         file.symlink(src, tmp)
         local ok, err = pcall(file.move, tmp, dst)
@@ -70,10 +69,27 @@ local function place(src, dst, tmpdir)
     link_beside(src, dst)
 end
 
--- install(install_path, tmpdir, selected, dirs): mark each selected skill as owned by
--- install_path, link it into every dir, and record the links that were placed.
-function M.install(install_path, tmpdir, selected, dirs)
-    local placed = {}
+-- read_record(record) -> the links listed in record, or {} when it is missing or unreadable.
+local function read_record(record)
+    if not file.exists(record) then
+        return {}
+    end
+    local ok, dsts = pcall(json.decode, file.read(record))
+    if not ok or type(dsts) ~= "table" then
+        return {}
+    end
+    return dsts
+end
+
+-- install(install_path, tmp, selected, dirs): mark each selected skill as owned by
+-- install_path, link it into every dir, and add the links that were placed to the record.
+-- One version serves every project that uses it, so earlier projects' links stay recorded.
+function M.install(install_path, tmp, selected, dirs)
+    local record = file.join_path(install_path, M.RECORD)
+    local placed, seen = read_record(record), {}
+    for _, dst in ipairs(placed) do
+        seen[dst] = true
+    end
     for _, skill in ipairs(selected) do
         write(file.join_path(skill.dir, M.MARKER), install_path)
         for _, dir in ipairs(dirs) do
@@ -85,16 +101,17 @@ function M.install(install_path, tmpdir, selected, dirs)
                 -- Another version of this tool is replaced (that is an upgrade); another tool is not.
                 log.warn("mise-skill: skipped " .. dst .. ": another tool links it, installed at " .. owner)
             else
-                local ok, err = pcall(place, skill.dir, dst, tmpdir)
-                if ok then
+                local ok, err = pcall(place, skill.dir, dst, tmp)
+                if ok and not seen[dst] then
+                    seen[dst] = true
                     table.insert(placed, dst)
-                else
+                elseif not ok then
                     log.warn("mise-skill: could not link " .. dst .. ": " .. tostring(err))
                 end
             end
         end
     end
-    write(file.join_path(install_path, M.RECORD), json.encode(placed))
+    write(record, json.encode(placed))
 end
 
 -- uninstall(install_path): remove the links this version recorded that still point at it.
