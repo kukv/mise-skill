@@ -60,7 +60,12 @@ mise は同じ `tool@version` を 1 回しかインストールしない。Backe
 呼ばれないため、プロジェクト A で入れた版をプロジェクト B が流用すると、B にはリンクが
 張られない。
 
-BackendExecEnv でも BackendInstall と同じリンク処理を行う。mise 2026.10.11 で次を確認した。
+BackendExecEnv でも BackendInstall と同じリンク処理を行う。ただし `root` を指定した設定のときだけ
+行う。`root` が無い設定では、同じツールの別の版を指す 2 つの設定が同じ `$HOME` 配下のディレクトリに
+リンクを張ろうとし、最後に ExecEnv が走った版へ共有のリンクが張り替わってしまう。そのため
+`root` が無い設定は初期設計のまま、リンクを張るのは install のときだけにし、ExecEnv は何もせず
+`{ env_vars = {} }` を返す。`root` があるとディレクトリはそのプロジェクトのものなので、
+そこにリンクを張るのはそのプロジェクトの設定だけになる。mise 2026.10.11 で次を確認した。
 
 - BackendExecEnv は、その版を使う設定ごとに、その設定の options（テンプレート展開済み）で
   呼ばれる。`mise install`（流用時も）、activate したシェルでプロジェクトに入ったとき
@@ -70,15 +75,18 @@ BackendExecEnv でも BackendInstall と同じリンク処理を行う。mise 20
 - `mise install -f` は BackendUninstall → BackendInstall の順に呼び、その版のキャッシュを
   すべて捨てる。
 
-初めて入れるときは BackendInstall と BackendExecEnv の両方が呼ばれる。同じ版のリンクは
-張り替えるだけなので結果は変わらない。
+`root` を指定して初めて入れるときは BackendInstall と BackendExecEnv の両方が呼ばれる。同じ版の
+リンクは張り替えるだけなので結果は変わらない。
 
 ## 記録
 
 1 つの版を複数のプロジェクトが共有するため、`install_path/.mise-skill.json` は上書きせず、
 既存の一覧に追記する（重複は除く）。BackendUninstall は従来どおりこの記録を使うので、
 `mise prune` / `mise uninstall` ですべてのプロジェクトのリンクが外れる。読めない記録は空として
-扱い、上書きする。
+扱い、上書きする。記録は一時ファイルに書いてから `os.rename` で置き換えるため、同時に読む側が
+書きかけのファイルを見ることはない。2 つの書き込みが同時に走ると一方の更新が失われることは
+ありうるが、その場合は prune がそのプロジェクトのリンクを外し損ねるだけで、宙に浮いたリンクは
+あとで張り替えられる。
 
 ## 一時リンクの置き場
 
@@ -87,7 +95,7 @@ BackendExecEnv の ctx には `download_path` が無いため、リンク処理�
 ディレクトリではなくパスで受け取る。
 
 - BackendInstall: `<download_path>/mise-skill-link`
-- BackendExecEnv: `os.tmpname()`。このファイルは作成済みで返り、一時リンクを使わない場合は
+- BackendExecEnv: `os.tmpname()`（`/tmp` に書けなくても例外にならないよう pcall の中で呼ぶ）。このファイルは作成済みで返り、一時リンクを使わない場合は
   残るため、リンク処理の後（失敗しても）消す。
 
 ## エラー処理
@@ -109,8 +117,6 @@ BackendExecEnv のエラーを mise は警告に落とすが、スタックト�
 - リンクはそのマシンの installs ディレクトリを指す。リポジトリでは
   `.claude/skills/<スキル名>` と `.agents/skills/<スキル名>` を gitignore する。
 - activate したシェルでは、プロジェクトに入っただけでリンクが作られる。
-- プラグインを更新すると、既存のインストールにも BackendExecEnv で 1 回リンク処理が走る
-  （同じリンクを張り替えるだけ）。
 
 ## テスト
 
@@ -126,6 +132,8 @@ BackendExecEnv のエラーを mise は警告に落とすが、スタックト�
   `mise-skill: could not link` の警告になり、スタックトレースは出ない。
 - b で `mise install -f` した後、a で `mise env` を実行すると a のリンクが戻る。
 - すべてのプロジェクトからツールを消して `mise prune` すると、すべてのリンクが外れる。
+- `root` が無い設定では、古い版を固定したプロジェクトに入っても、グローバルのリンクは
+  新しい版のまま変わらない（`mise cache clear` の後に `mise env` を実行して確かめる）。
 - テストの前後で `/tmp/lua_*` が増えない。
 
 ## ドキュメント
