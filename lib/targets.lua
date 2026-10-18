@@ -2,7 +2,7 @@ local file = require("file")
 
 local M = {}
 
--- Where each agent reads user-level skills, relative to $HOME.
+-- Where each agent reads skills, relative to $HOME (user level) or to the root option (a project).
 M.AGENTS = {
     ["claude-code"] = ".claude/skills",
     ["codex"] = ".agents/skills",
@@ -17,7 +17,7 @@ local function as_list(value)
     return value
 end
 
-local function expand(path, home)
+local function expand(path, home, what)
     if path == "~" then
         return home
     elseif path:sub(1, 2) == "~/" then
@@ -25,12 +25,18 @@ local function expand(path, home)
     elseif path:sub(1, 1) == "/" then
         return path
     end
-    error("mise-skill: dirs entries must be absolute or start with ~/: " .. path)
+    error("mise-skill: " .. what .. " must be absolute or start with ~/: " .. path)
 end
 
 -- resolve(options, env_agents, home) -> the directories to link into, deduplicated, in order:
--- the agents (options.agents, else MISE_SKILL_AGENTS, else claude-code), then options.dirs.
+-- the agents (options.agents, else MISE_SKILL_AGENTS, else claude-code) under options.root, else
+-- under home, then options.dirs.
 function M.resolve(options, env_agents, home)
+    local base = home
+    if options.root ~= nil then
+        base = expand(options.root, home, "root")
+    end
+
     local agents = as_list(options.agents)
     if agents == nil and env_agents ~= nil and env_agents ~= "" then
         agents = {}
@@ -52,10 +58,10 @@ function M.resolve(options, env_agents, home)
         if rel == nil then
             error("mise-skill: unknown agent " .. name .. " (known: claude-code, codex)")
         end
-        add(file.join_path(home, rel))
+        add(file.join_path(base, rel))
     end
     for _, dir in ipairs(as_list(options.dirs) or {}) do
-        add(expand(dir, home))
+        add(expand(dir, home, "dirs entries"))
     end
     return dirs
 end
