@@ -38,7 +38,7 @@ function M.discover(root)
         end
     end
     if #found == 0 then
-        error("mise-skill: no SKILL.md with a name was found in " .. root)
+        error("mise-skill: no SKILL.md with a name was found in " .. root, 0)
     end
     return found
 end
@@ -62,13 +62,13 @@ function M.select(found, wanted)
     for _, name in ipairs(names) do
         local matches = by_name[name]
         if matches == nil then
-            error("mise-skill: no skill named " .. name .. " (found: " .. table.concat(order, ", ") .. ")")
+            error("mise-skill: no skill named " .. name .. " (found: " .. table.concat(order, ", ") .. ")", 0)
         elseif #matches > 1 then
             local dirs = {}
             for _, skill in ipairs(matches) do
                 table.insert(dirs, skill.dir)
             end
-            error("mise-skill: more than one skill is named " .. name .. ": " .. table.concat(dirs, ", "))
+            error("mise-skill: more than one skill is named " .. name .. ": " .. table.concat(dirs, ", "), 0)
         end
         table.insert(selected, matches[1])
     end

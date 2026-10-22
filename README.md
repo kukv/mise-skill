@@ -61,13 +61,13 @@ The directories are under your home, or under `root` when it is set.
 
 ## Keeping links in sync
 
-Links are made when a version is installed and when mise first uses it with a new set of options (another config, or changed options), and removed when it is uninstalled.
+Links are made when a version is installed and when mise first uses it with a new combination of options (another config, or changed options), and removed when it is uninstalled.
 
 | To | Run |
 |---|---|
 | add a skill or move to a new version | `mise install` / `mise upgrade` |
-| apply changed `skills` / `agents` / `dirs` / `root` | nothing: the next mise run applies them |
-| switch to a version that is already installed | `mise cache clear` |
+| apply changed `skills` / `agents` / `dirs` / `root` (a new combination of options) | nothing: the next mise run applies them |
+| switch to a version that is already installed, go back to options used before, or change `MISE_SKILL_AGENTS` | `mise cache clear` |
 | move a `ref:` install (e.g. `ref:main`) to the branch's latest commit | `mise install -f skill:owner/repo@ref:main` |
 | remove a skill's links | delete it from `[tools]`, then `mise prune` |
 
@@ -91,6 +91,11 @@ project needs `root`: a project config without it is an error.
 - `mise install -f` in one project unlinks the version in the other projects until mise runs there.
 - Two configs that point different versions of a tool at the same `dirs` entry swap the links on
   each run.
+
+Upgrading from 0.1: after updating the plugin, run `mise cache clear` once; old cache entries
+otherwise keep mise from calling the new plugin. A project `mise.toml` that lists `skill:` tools
+without `root` used to link into `~` and is now an error: add `root = "{{config_root}}"`, or move
+the tool to the global config. Links that 0.1 made are still removed by `mise prune`.
 
 ## Development
 

@@ -24,7 +24,6 @@ m env >/dev/null 2>&1 || fail "no-root: global env"
 [ "$(cat "$h/.claude/skills/alpha/.mise-skill")" = "$(installs)/$dir/0.2.0" ] ||
   fail "no-root: the global config should still link 0.2.0"
 
-
 new_home project
 echo '[tools]' | config
 for p in a b c; do

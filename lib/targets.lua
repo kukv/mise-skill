@@ -31,7 +31,7 @@ local function expand(path, home, what)
     elseif path:sub(1, 1) == "/" then
         return path
     end
-    error("mise-skill: " .. what .. " must be absolute or start with ~/: " .. path)
+    error("mise-skill: " .. what .. " must be absolute or start with ~/: " .. path, 0)
 end
 
 -- requested(flags, install_path) -> the tool name and entry in `mise ls --json <flags>`, run
@@ -39,7 +39,7 @@ end
 -- mise cannot be run or its output is not JSON.
 -- Nothing in ctx tells which config a hook was called for, but `mise ls` does.
 local function requested(flags, install_path)
-    local p = io.popen("mise ls --json " .. flags .. " 2>/dev/null")
+    local p = io.popen("mise ls --json " .. flags .. " 2>/dev/null </dev/null")
     if p == nil then
         error("could not run mise ls", 0)
     end
@@ -63,24 +63,27 @@ end
 -- nil when the config in effect here does not use install_path: after an install mise calls the
 -- hooks for every installed version, with the options of the version in effect, and `mise use`
 -- installs before it writes the config. options.root wins; without it the config must be global.
+-- root is expanded first, so a relative one fails `mise use` at install time too.
 -- A project config without root raises: ExecEnv results are cached per install and options, so a
 -- quiet nil here would stop a global config with the same options from ever being linked.
 -- When mise ls fails it warns and returns nil.
 function M.base(install_path, options, home)
+    local root = options.root ~= nil and expand(options.root, home, "root") or nil
     local ok, found = pcall(function()
         local name, entry = requested("--current", install_path)
         if name == nil then
             return nil
         end
-        return { name = name, entry = entry, global = requested("--current --global", install_path) ~= nil }
+        local global = root == nil and requested("--current --global", install_path) ~= nil
+        return { name = name, entry = entry, global = global }
     end)
     if not ok then
         log.warn("mise-skill: could not tell which config uses " .. install_path .. ": " .. tostring(found))
         return nil
     elseif found == nil then
         return nil
-    elseif options.root ~= nil then
-        return expand(options.root, home, "root")
+    elseif root ~= nil then
+        return root
     elseif found.global then
         return home
     end
@@ -92,7 +95,8 @@ function M.base(install_path, options, home)
             .. tostring(source)
             .. " "
             .. M.NO_ROOT
-            .. ' = "{{config_root}}"'
+            .. ' = "{{config_root}}"',
+        0
     )
 end
 
@@ -120,7 +124,7 @@ function M.resolve(options, env_agents, home, base)
     for _, name in ipairs(agents) do
         local rel = M.AGENTS[name]
         if rel == nil then
-            error("mise-skill: unknown agent " .. name .. " (known: claude-code, codex)")
+            error("mise-skill: unknown agent " .. name .. " (known: claude-code, codex)", 0)
         end
         add(file.join_path(base, rel))
     end

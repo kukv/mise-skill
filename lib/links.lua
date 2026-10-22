@@ -138,6 +138,9 @@ function M.sync(install_path, base, selected, dirs)
                 if ok then
                     table.insert(placed, dst)
                 else
+                    if kind == "ours" and owner == install_path then
+                        table.insert(placed, dst) -- the old link is still ours; keep it recorded for prune
+                    end
                     log.warn("mise-skill: could not link " .. dst .. ": " .. tostring(err))
                 end
             end

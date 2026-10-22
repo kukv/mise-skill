@@ -26,7 +26,8 @@ function PLUGIN:BackendExecEnv(ctx)
         if tostring(err):find(targets.NO_ROOT, 1, true) then
             error(err, 0)
         end
-        log.warn("mise-skill: could not link " .. ctx.tool .. ": " .. tostring(err))
+        local reason = tostring(err):gsub("^mise%-skill: ", "")
+        log.warn("mise-skill: could not link " .. ctx.tool .. ": " .. reason)
     end
     return { env_vars = {} }
 end
