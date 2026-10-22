@@ -110,7 +110,9 @@ install の副作用で足りたが、プロジェクトを加えると合わな
    - install 直後に、cwd で有効でない版の ExecEnv が呼ばれた。
    - `mise use` が設定を書く前の BackendInstall（続く ExecEnv でリンクする）。
    - 引数だけの `mise install skill:x@1`。
-   - `mise ls` が失敗した、または出力を読めなかった。
+
+   `mise ls` が失敗した、または出力を読めなかったときも何もしないが、こちらは
+   `mise-skill: could not tell which config uses <install_path>: <理由>` と警告する。
 2. `root` があれば、それを `dirs` と同じ規則で展開して基準にする（`~` / `~/...` は `$HOME` 基準、
    `/` 始まりはそのまま）。それ以外はエラー:
    `mise-skill: root must be absolute or start with ~/: <値>`。
@@ -208,7 +210,8 @@ ExecEnv のエラーを mise はスタックトレース付きで出し、キャ
 |---|---|
 | `skills` に無い名前、未知の `agents`、相対パスの `root` / `dirs` | install を失敗させる。ExecEnv では警告 |
 | `root` の無いプロジェクトの設定 | install も ExecEnv もエラー |
-| cwd で有効な版でない、`mise ls` の失敗 | 何もしない |
+| cwd で有効な版でない | 何もしない |
+| `mise ls` の失敗 | 警告して何もしない |
 | 実ディレクトリ・他人のリンク・別の `skill:` ツールのリンクと衝突 | 触らず警告する |
 | 個々のリンクの作成・削除の失敗 | 警告する |
 | 取得・展開・`SKILL.md` に関する失敗 | 初期設計のまま |

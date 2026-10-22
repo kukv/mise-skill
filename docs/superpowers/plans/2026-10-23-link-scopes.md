@@ -29,6 +29,7 @@
 |---|---|---|
 | `lib/targets.lua` | 基準ディレクトリとリンク先ディレクトリの決定 | `base()` を追加、`resolve()` に `base` 引数、`expand()` の文言を引数化 |
 | `lib/links.lua` | リンクの作成・突き合わせ・記録・解除 | `install()` を `sync()` に置き換え、記録を表に、一時リンクを `install_path` に |
+| `lib/skills.lua` | スキルの発見 | 一時リンクを通るパスを飛ばす |
 | `hooks/backend_install.lua` | 取得・展開とリンク | `targets.base()` と `links.sync()` を使う |
 | `hooks/backend_exec_env.lua` | 設定ごとのリンク | リンク処理を行う |
 | `hooks/backend_uninstall.lua` | 解除 | 変更なし（`links.uninstall` の中身が変わる） |
@@ -47,6 +48,7 @@
 **Files:**
 - Modify: `lib/targets.lua`
 - Modify: `lib/links.lua`
+- Modify: `lib/skills.lua`
 - Modify: `hooks/backend_install.lua`
 - Modify: `hooks/backend_exec_env.lua`
 - Modify: `tests/lib.sh`
@@ -166,6 +168,7 @@ Expected: `link.test.sh` は `FAIL: options: codex link should appear`、`projec
 ```lua
 local file = require("file")
 local json = require("json")
+local log = require("log")
 
 local M = {}
 
@@ -199,18 +202,19 @@ local function expand(path, home, what)
 end
 
 -- requested(flags, install_path) -> the tool name and entry in `mise ls --json <flags>`, run
--- where mise was started, whose install_path is install_path; nil when none is or mise fails.
+-- where mise was started, whose install_path is install_path; nil when none is. Raises when
+-- mise cannot be run or its output is not JSON.
 -- Nothing in ctx tells which config a hook was called for, but `mise ls` does.
 local function requested(flags, install_path)
     local p = io.popen("mise ls --json " .. flags .. " 2>/dev/null")
     if p == nil then
-        return nil
+        error("could not run mise ls", 0)
     end
     local out = p:read("*a")
     p:close()
     local ok, tools = pcall(json.decode, out)
     if not ok or type(tools) ~= "table" then
-        return nil
+        error("could not read the output of mise ls --json " .. flags, 0)
     end
     for name, entries in pairs(tools) do
         for _, entry in ipairs(entries) do
@@ -227,16 +231,25 @@ end
 -- hooks for every installed version, and `mise use` installs before it writes the config.
 -- A project config without root raises: ExecEnv results are cached per install and options, so a
 -- quiet nil here would stop a global config with the same options from ever being linked.
+-- When mise ls fails it warns and returns nil.
 function M.base(install_path, options, home)
-    local name, entry = requested("--current", install_path)
-    if name == nil then
+    local ok, found = pcall(function()
+        local name, entry = requested("--current", install_path)
+        if name == nil then
+            return nil
+        end
+        return { name = name, entry = entry, global = requested("--current --global", install_path) ~= nil }
+    end)
+    if not ok then
+        log.warn("mise-skill: could not tell which config uses " .. install_path .. ": " .. tostring(found))
         return nil
-    end
-    if requested("--current --global", install_path) ~= nil then
+    elseif found == nil then
+        return nil
+    elseif found.global then
         return home
     end
-    local source = entry.source and entry.source.path or "a project config"
-    error("mise-skill: " .. name .. " is declared in " .. tostring(source) .. " " .. M.NO_ROOT .. ' = "{{config_root}}"')
+    local source = found.entry.source and found.entry.source.path or "a project config"
+    error("mise-skill: " .. found.name .. " is declared in " .. tostring(source) .. " " .. M.NO_ROOT .. ' = "{{config_root}}"')
 end
 
 -- resolve(options, env_agents, home, base) -> the directories to link into, deduplicated, in order:
@@ -283,6 +296,7 @@ return M
 ```lua
 M.RECORD = ".mise-skill.json" -- in install_path; the links this version placed, by base directory
 M.LEGACY = "" -- the record's key for links recorded as a plain list, by mise-skill 0.1
+M.TMP_LINK = ".mise-skill-link-" -- prefix of the temporary link that sync builds in install_path
 ```
 
 ```lua
@@ -351,7 +365,8 @@ end
 -- linked last time and no longer wants, and record the links under base. One version serves
 -- every config that uses it, so the other bases are other configs and are left alone.
 function M.sync(install_path, base, selected, dirs)
-    local tmp = file.join_path(install_path, ".mise-skill-link")
+    -- A name of its own, since ExecEnv can run in two shells at once; discover skips it.
+    local tmp = file.join_path(install_path, M.TMP_LINK .. tostring(os.time()) .. tostring(math.random(1e9)))
     local by_base = read_record(install_path)
     local placed, wanted = {}, {}
     for _, skill in ipairs(selected) do
@@ -468,17 +483,38 @@ function PLUGIN:BackendExecEnv(ctx)
 end
 ```
 
-- [ ] **Step 9: テストが通ることを確かめる**
+- [ ] **Step 9: `skills.discover` が一時リンクを拾わないようにする**
+
+`lib/skills.lua` の `M.discover` のループの先頭で、`links.sync` の一時リンクを通るパスを飛ばす。一時リンクはスキルのディレクトリを指すので、`**/SKILL.md` に一致すると同じ名前のスキルが 2 つあることになる。
+
+```lua
+    for _, path in ipairs(file.glob(file.join_path(root, "**", "SKILL.md"))) do
+        local name
+        -- links.sync builds a temporary link to a skill in root (links.TMP_LINK); it is not a skill.
+        if not path:find("/.mise-skill-link-", 1, true) then
+            name = M.parse_name(file.read(path))
+        end
+        if name ~= nil and not name:match("^[%w][%w._-]*$") then
+```
+
+（`local name = M.parse_name(file.read(path))` の 1 行を、上の `local name` から `end` までの 4 行に置き換える。以降の行は変えない。）`lib/skills.lua` から `links` を require すると循環するので、文字列で書く。
+
+- [ ] **Step 10: テストが通ることを確かめる**
+
+まず install のテストだけを時間制限付きで動かす。BackendInstall の中で呼ぶ `mise ls --current` が `"latest"` を解決するとき、このプラグインの BackendListVersions を呼ぶことがある。止まったら、テストではなくロックや再帰の問題として調べる。
+
+Run: `timeout 300 sh tests/install.test.sh`
+Expected: `ok install`
 
 Run: `mise run format && mise run ci`
 Expected: lint はすべて ✔、テストは `ok install` / `ok link` / `ok project` / `ok versions`。
 
 `ok install` も確かめる。`tests/install.test.sh` は空の `[tools]` で引数だけの install を行うので、`targets.base` が `nil` を返してもスキルの選択（`skills` に無い名前など）の検査は従来どおり動く必要がある。
 
-- [ ] **Step 10: Commit**
+- [ ] **Step 11: Commit**
 
 ```bash
-git add lib/targets.lua lib/links.lua hooks/backend_install.lua hooks/backend_exec_env.lua tests/lib.sh tests/link.test.sh tests/project.test.sh
+git add lib/targets.lua lib/links.lua lib/skills.lua hooks/backend_install.lua hooks/backend_exec_env.lua tests/lib.sh tests/link.test.sh tests/project.test.sh
 git commit -m "feat: 設定ごとにリンクし、オプションの変更を install -f なしで反映する"
 ```
 
@@ -594,19 +630,27 @@ Expected: `FAIL: a: install`（`root` を書いても、まだプロジェクト
 -- installs before it writes the config. options.root wins; without it the config must be global.
 -- A project config without root raises: ExecEnv results are cached per install and options, so a
 -- quiet nil here would stop a global config with the same options from ever being linked.
+-- When mise ls fails it warns and returns nil.
 function M.base(install_path, options, home)
-    local name, entry = requested("--current", install_path)
-    if name == nil then
+    local ok, found = pcall(function()
+        local name, entry = requested("--current", install_path)
+        if name == nil then
+            return nil
+        end
+        return { name = name, entry = entry, global = requested("--current --global", install_path) ~= nil }
+    end)
+    if not ok then
+        log.warn("mise-skill: could not tell which config uses " .. install_path .. ": " .. tostring(found))
         return nil
-    end
-    if options.root ~= nil then
+    elseif found == nil then
+        return nil
+    elseif options.root ~= nil then
         return expand(options.root, home, "root")
-    end
-    if requested("--current --global", install_path) ~= nil then
+    elseif found.global then
         return home
     end
-    local source = entry.source and entry.source.path or "a project config"
-    error("mise-skill: " .. name .. " is declared in " .. tostring(source) .. " " .. M.NO_ROOT .. ' = "{{config_root}}"')
+    local source = found.entry.source and found.entry.source.path or "a project config"
+    error("mise-skill: " .. found.name .. " is declared in " .. tostring(source) .. " " .. M.NO_ROOT .. ' = "{{config_root}}"')
 end
 ```
 
