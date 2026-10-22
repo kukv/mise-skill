@@ -4,7 +4,8 @@ local log = require("log")
 
 local M = {}
 
--- Where each agent reads skills, relative to a base: $HOME for the global config.
+-- Where each agent reads skills, relative to a base: $HOME for the global config, the root option
+-- for a project.
 M.AGENTS = {
     ["claude-code"] = ".claude/skills",
     ["codex"] = ".agents/skills",
@@ -60,7 +61,8 @@ end
 
 -- base(install_path, options, home) -> the directory the agents' skill directories are under, or
 -- nil when the config in effect here does not use install_path: after an install mise calls the
--- hooks for every installed version, and `mise use` installs before it writes the config.
+-- hooks for every installed version, with the options of the version in effect, and `mise use`
+-- installs before it writes the config. options.root wins; without it the config must be global.
 -- A project config without root raises: ExecEnv results are cached per install and options, so a
 -- quiet nil here would stop a global config with the same options from ever being linked.
 -- When mise ls fails it warns and returns nil.
@@ -77,6 +79,8 @@ function M.base(install_path, options, home)
         return nil
     elseif found == nil then
         return nil
+    elseif options.root ~= nil then
+        return expand(options.root, home, "root")
     elseif found.global then
         return home
     end
