@@ -25,6 +25,15 @@ MISE_SKILL_AGENTS = "claude-code,codex"   # 既定: claude-code
 mise install
 ```
 
+プロジェクトだけで使うスキルは、そのプロジェクトの `mise.toml` に `root = "{{config_root}}"` を
+付けて書く。リンク先がホームではなく、プロジェクトの `.claude/skills` / `.agents/skills` になる。
+
+```toml
+# <project>/mise.toml
+[tools]
+"skill:example/prose-lint" = { version = "latest", root = "{{config_root}}", agents = ["claude-code", "codex"] }
+```
+
 各スキルは mise の installs ディレクトリに展開され、`<dir>/<スキル名>` として symlink が
 張られる。hook も追加のツールも要らない。
 
@@ -40,26 +49,46 @@ mise install
 | `skills` | 見つかったすべてのスキル | リンクするスキル名（`SKILL.md` の `name:`） |
 | `agents` | `MISE_SKILL_AGENTS`、なければ `claude-code` | リンク先にするエージェント |
 | `dirs` | なし | 追加でリンクするディレクトリ（絶対パスか `~/...`） |
+| `root` | なし | エージェントのディレクトリの基準（絶対パスか `~/...`）。プロジェクトでは `{{config_root}}` |
 
 | エージェント | ディレクトリ |
 |---|---|
 | `claude-code` | `~/.claude/skills` |
 | `codex` | `~/.agents/skills` |
 
+ディレクトリはホームの下、`root` があれば `root` の下にある。
+
 ## リンクを最新に保つ
 
-リンクは版のインストール時に張られ、アンインストール時に外れる。
+リンクは版のインストール時と mise が動くたびに張られ、アンインストール時に外れる。
 
 | やりたいこと | 実行するもの |
 |---|---|
 | スキルを足す、新しい版に上げる | `mise install` / `mise upgrade` |
-| `skills` / `agents` / `dirs` の変更を反映する | `mise install -f skill:owner/repo` |
+| `skills` / `agents` / `dirs` / `root` の変更を反映する | 何もしない（次に mise が動いたときに反映される） |
+| 入れ済みの版に切り替える | `mise cache clear` |
 | `ref:` で入れたもの（例: `ref:main`）をブランチの最新コミットに上げる | `mise install -f skill:owner/repo@ref:main` |
 | スキルのリンクを外す | `[tools]` から消して `mise prune` |
 
 mise-skill が作っていない既存のディレクトリや、生きているリンクには触れない。インストールは
 警告を出してそれを飛ばす。別の `skill:` ツールが張ったリンクも同じで、2 つのツールが同じ名前の
 スキルを持つときは先に入れた方が残る（`skills` で選ぶ）。同じ名前の切れたリンクは張り替える。
+
+## スコープ
+
+リンクは設定ごとに張られる。グローバル設定（`~/.config/mise/config.toml`）のスキルはホームに、
+`root = "{{config_root}}"` を付けたプロジェクトの `mise.toml` のスキルはそのプロジェクトに張られる。
+mise はツールがどの設定に書かれたかをプラグインに渡さず、プラグインの結果をオプションの値ごとに
+キャッシュする。そのため、プロジェクトでは `root` が要る。`root` の無いプロジェクトの設定はエラーになる。
+
+- リンクはこのマシンの mise の installs ディレクトリを指す。リポジトリでは `.claude/skills/<名前>` と
+  `.agents/skills/<名前>` を gitignore する。
+- `mise activate` したシェルでは、プロジェクトに入っただけでそのスキルがリンクされる。
+- 設定から消したツールのリンクは、その版を prune するまで残る。
+- 手で消したリンクは、`mise cache clear` するまで張り直されない。
+- 1 つのプロジェクトで `mise install -f` すると、ほかのプロジェクトのその版のリンクは、そこで mise が
+  動くまで外れる。
+- 2 つの設定が、同じツールの違う版を同じ `dirs` に向けると、mise が動くたびにリンクが張り替わる。
 
 ## 開発
 

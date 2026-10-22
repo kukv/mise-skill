@@ -3,6 +3,7 @@
 - 日付: 2026-10-16
 - リポジトリ: `kukv/mise-skill`（公開。作成は `kukv/structure` の Terraform で行う）
 - 作業ディレクトリ: `~/dev/workspaces/mise-skill`（リポジトリ作成まで）
+- リンクの張り方・外し方は `2026-10-23-link-scopes-design.md` で置き換えた。
 
 ## 背景
 

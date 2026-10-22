@@ -159,7 +159,7 @@ ExecEnv のエラーを mise はスタックトレース付きで出し、キャ
 ### 一時リンクの置き場
 
 親ディレクトリが無いときの一時リンクは、`download_path` ではなく `install_path` の中
-（`<install_path>/.mise-skill-link`）に作る。ExecEnv の ctx には `download_path` が無いが
+（`<install_path>/.mise-skill-link-<呼び出しごとの接尾辞>`）に作る。2 つのシェルで ExecEnv が同時に動いても衝突しないよう、名前は呼び出しごとに変える。スキルの探索はこの名前を通るパスを飛ばす。ExecEnv の ctx には `download_path` が無いが
 `install_path` はあり、必ず存在して書き込める。リンク先が別のファイルシステムで移動に失敗した
 ときの扱い（親は作られているので、同じディレクトリでの作成に切り替える）は初期設計のまま。
 
