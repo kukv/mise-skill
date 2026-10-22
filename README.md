@@ -61,7 +61,7 @@ The directories are under your home, or under `root` when it is set.
 
 ## Keeping links in sync
 
-Links are made when a version is installed and on each mise run, and removed when it is uninstalled.
+Links are made when a version is installed and when mise first uses it with a new set of options (another config, or changed options), and removed when it is uninstalled.
 
 | To | Run |
 |---|---|
