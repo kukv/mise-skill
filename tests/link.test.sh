@@ -121,20 +121,21 @@ m install >/dev/null 2>&1 || fail "upgrade: install 0.2.0"
 m uninstall "$fx@0.1.0" >/dev/null 2>&1 || fail "upgrade: uninstall 0.1.0"
 [ -L "$h/.claude/skills/alpha" ] || fail "upgrade: removing 0.1.0 must keep the 0.2.0 link"
 
-# install -f applies changed options and drops links that are no longer wanted
+# changed options apply on the next mise run, without install -f, and drop links no longer wanted
 cat <<'EOT' | config
 [tools]
 "skill:bright-room-sandbox/mise-skill-fixtures" = { version = "0.2.0", agents = ["claude-code", "codex"] }
 EOT
-m install -f "$fx@0.2.0" >/dev/null 2>&1 || fail "reinstall: add codex"
-[ -L "$h/.agents/skills/alpha" ] || fail "reinstall: codex link should appear"
+m env >/dev/null 2>&1 || fail "options: env after adding codex"
+[ -L "$h/.agents/skills/alpha" ] || fail "options: codex link should appear"
 cat <<'EOT' | config
 [tools]
-"skill:bright-room-sandbox/mise-skill-fixtures" = { version = "0.2.0", agents = ["codex"] }
+"skill:bright-room-sandbox/mise-skill-fixtures" = { version = "0.2.0", agents = ["codex"], skills = ["alpha", "beta"] }
 EOT
-m install -f "$fx@0.2.0" >/dev/null 2>&1 || fail "reinstall: drop claude-code"
-[ -e "$h/.claude/skills/alpha" ] && fail "reinstall: claude-code link should be gone"
-[ -L "$h/.agents/skills/alpha" ] || fail "reinstall: codex link should stay"
+m env >/dev/null 2>&1 || fail "options: env after dropping claude-code and gamma"
+[ -e "$h/.claude/skills/alpha" ] && fail "options: claude-code link should be gone"
+[ -e "$h/.agents/skills/gamma" ] && fail "options: gamma link should be gone"
+[ -L "$h/.agents/skills/alpha" ] || fail "options: codex link should stay"
 
 # removing the tool from the config and pruning removes its links, and only its links
 mkdir -p "$h/.agents/skills/handmade"
@@ -156,5 +157,20 @@ for p in "$h/.claude/escape" "$h/escape" "$h/.claude/skills/escape"; do
 done
 stray="$(find "$h" -name escape -not -path '*/installs/*' -not -path '*/downloads/*')"
 [ -z "$stray" ] || fail "name: nothing named escape may exist outside installs, got: $stray"
+
+# a version installed only by arguments, which no config requests, is not linked
+new_home args
+echo '[tools]' | config
+m install "$fx@0.1.0" >/dev/null 2>&1 || fail "args: install"
+[ -e "$h/.claude/skills/alpha" ] && fail "args: no config requests it, so nothing should be linked"
+
+# a record in the list form of mise-skill 0.1 still has its links removed by prune
+new_home legacy
+printf '[tools]\n"%s" = "0.1.0"\n' "$fx" | config
+m install >/dev/null 2>&1 || fail "legacy: install"
+printf '["%s"]' "$h/.claude/skills/alpha" > "$(installs)/$dir/0.1.0/.mise-skill.json"
+echo '[tools]' | config
+m prune >/dev/null 2>&1 || fail "legacy: prune"
+[ -e "$h/.claude/skills/alpha" ] && fail "legacy: the listed link should be gone"
 
 echo "ok link"

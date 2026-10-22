@@ -26,7 +26,11 @@ end
 function M.discover(root)
     local found = {}
     for _, path in ipairs(file.glob(file.join_path(root, "**", "SKILL.md"))) do
-        local name = M.parse_name(file.read(path))
+        local name
+        -- links.sync builds a temporary link to a skill in root (links.TMP_LINK); it is not a skill.
+        if not path:find("/.mise-skill-link-", 1, true) then
+            name = M.parse_name(file.read(path))
+        end
         if name ~= nil and not name:match("^[%w][%w._-]*$") then
             log.warn("mise-skill: ignored " .. path .. ": invalid skill name " .. name)
         elseif name ~= nil then

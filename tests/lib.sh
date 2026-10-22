@@ -12,9 +12,11 @@ h=""
 
 fail() { echo "FAIL: $*" >&2; exit 1; }
 
-# m <args...>: run mise inside $h with no XDG / MISE_* overrides leaking in from the caller.
+# m <args...>: run mise inside $h (in $wd if set, else $h/work) with no XDG / MISE_* overrides
+# leaking in from the caller. Set wd only in a subshell or command substitution, e.g.
+# (wd=... m install): a prefix assignment on a function can persist in some shells (bash POSIX mode).
 m() {
-  (cd "$h/work" && env -u XDG_CONFIG_HOME -u XDG_DATA_HOME -u XDG_STATE_HOME -u XDG_CACHE_HOME \
+  (cd "${wd:-$h/work}" && env -u XDG_CONFIG_HOME -u XDG_DATA_HOME -u XDG_STATE_HOME -u XDG_CACHE_HOME \
     -u MISE_DATA_DIR -u MISE_CONFIG_DIR -u MISE_CACHE_DIR -u MISE_STATE_DIR -u MISE_ENV \
     -u MISE_SKILL_AGENTS MISE_CEILING_PATHS="$h" HOME="$h" GH_CONFIG_DIR="$gh_config" MISE_YES=1 mise "$@")
 }

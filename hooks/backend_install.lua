@@ -8,7 +8,9 @@ local targets = require("targets")
 
 function PLUGIN:BackendInstall(ctx)
     -- Check the options before downloading anything.
-    local dirs = targets.resolve(ctx.options, os.getenv("MISE_SKILL_AGENTS"), os.getenv("HOME"))
+    local home = os.getenv("HOME")
+    local base = targets.base(ctx.install_path, ctx.options, home)
+    local dirs = targets.resolve(ctx.options, os.getenv("MISE_SKILL_AGENTS"), home, base)
 
     local ref = github.ref_for(ctx.tool, ctx.version)
     local archive = file.join_path(ctx.download_path, "source.tar.gz")
@@ -16,6 +18,10 @@ function PLUGIN:BackendInstall(ctx)
     archiver.decompress(archive, ctx.install_path, { strip_components = 1 })
 
     local selected = skills.select(skills.discover(ctx.install_path), ctx.options.skills)
-    links.install(ctx.install_path, ctx.download_path, selected, dirs)
+    -- With no base the config is not written yet (mise use) or does not use this version;
+    -- BackendExecEnv links it where a config does.
+    if base ~= nil then
+        links.sync(ctx.install_path, base, selected, dirs)
+    end
     return {}
 end
